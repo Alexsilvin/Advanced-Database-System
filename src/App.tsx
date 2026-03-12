@@ -24,6 +24,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const isGlitching = useGlitchEffect();
 
   useEffect(() => {
@@ -92,7 +93,7 @@ export default function App() {
           onTabChange={setActiveTab}
         />
 
-        <div className="flex-1">
+        <div className="flex-1 py-8 px-6 min-w-0">
           <AnimatePresence mode="wait">
             {activeTab === 'store' && (
               <Store

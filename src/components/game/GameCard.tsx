@@ -8,6 +8,8 @@ interface GameCardProps {
   onBuy: () => void;
   onSelect: () => void;
   owned: boolean;
+  onViewLibrary?: () => void;
+  onSelectGame?: () => void;
 }
 
 export default function GameCard({ game, onBuy, onSelect, owned }: GameCardProps) {

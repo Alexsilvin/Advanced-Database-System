@@ -9,9 +9,9 @@ interface SidebarProps {
 
 export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   return (
-    <nav className="hidden lg:flex flex-col gap-2 w-64">
-      <NavButton
-        active={activeTab === 'store'}
+    <nav className="hidden lg:flex flex-col gap-2 w-64 shrink-0 py-8 px-4 border-r border-white/5 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
+      <NavButton 
+        active={activeTab === 'store'} 
         onClick={() => onTabChange('store')}
         icon={<ShoppingBag className="w-5 h-5" />}
         label="THE STORE"

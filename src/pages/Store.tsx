@@ -73,6 +73,8 @@ export default function Store({ games, library, filteredGames, dbError, onAddToL
               onBuy={() => onAddToLibrary(game.id)}
               onSelect={() => onSelectGame(game)}
               owned={library.includes(game.id)}
+              onViewLibrary={() => onTabChange('library')}
+              onSelectGame={() => onSelectGame(game)}
             />
           ))}
         </div>

@@ -11,6 +11,7 @@ interface StoreProps {
   filteredGames: Game[];
   dbError: string | null;
   onAddToLibrary: (gameId: number) => void;
+  onSelectGame: (game: Game) => void;
 }
 
 const SectionHeader = ({ title, showViewMore = true }: { title: string, showViewMore?: boolean }) => (
@@ -27,7 +28,7 @@ const SectionHeader = ({ title, showViewMore = true }: { title: string, showView
   </div>
 );
 
-export default function Store({ games, library, filteredGames, dbError, onAddToLibrary }: StoreProps) {
+export default function Store({ games, library, filteredGames, dbError, onAddToLibrary, onSelectGame }: StoreProps) {
   // Categorize games for different sections
   const trendingGames = [...filteredGames].reverse().slice(0, 6);
   const newlyAdded = [...filteredGames].slice(0, 6);
@@ -87,6 +88,7 @@ export default function Store({ games, library, filteredGames, dbError, onAddToL
                 key={`added-${game.id}`}
                 game={game}
                 onBuy={() => onAddToLibrary(game.id)}
+                onSelect={() => onSelectGame(game)}
                 owned={library.includes(game.id)}
               />
             ))}

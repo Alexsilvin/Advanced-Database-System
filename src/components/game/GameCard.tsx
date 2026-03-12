@@ -33,11 +33,9 @@ export default function GameCard({ game, onBuy, onSelect, owned }: GameCardProps
               onBuy();
             }}
             disabled={owned}
-            className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${owned
-                ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default'
-                : 'bg-neon-cyan text-black hover:scale-105 active:scale-95'
-              }`}
-            className={`p-4 rounded-full transition-transform active:scale-90 ${owned ? 'bg-green-500/20 text-green-400' : 'bg-white text-black hover:bg-neon-cyan'
+            className={`p-3 rounded-full transition-all active:scale-95 flex items-center justify-center ${owned
+              ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default'
+              : 'bg-white text-black hover:bg-neon-cyan hover:scale-105 active:scale-90 shadow-lg'
               }`}
           >
             <Zap className={`w-6 h-6 ${owned ? 'opacity-50' : ''}`} />

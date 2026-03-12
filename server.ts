@@ -18,9 +18,6 @@ function getPool() {
     }
     pool = new Pool({
       connectionString,
-      ssl: {
-        rejectUnauthorized: false // Required for many online providers like Supabase/Neon
-      }
     });
   }
   return pool;
@@ -73,7 +70,8 @@ async function initDb() {
       console.log("Database seeded with expanded catalog.");
     }
   } catch (err) {
-    console.error("Database initialization failed:", err);
+    console.error("CRITICAL: Database initialization failed!");
+    console.error(err);
   }
 }
 
@@ -110,7 +108,8 @@ async function startServer() {
       if (result.rows.length === 0) return res.json(mockGames);
       res.json(result.rows);
     } catch (err) {
-      console.error("Database query failed, falling back to mock data.");
+      console.error("Database query failed:", err);
+      console.warn("Falling back to mock data.");
       res.json(mockGames);
     }
   });

@@ -58,12 +58,13 @@ export default function App() {
         <div className="flex-1">
           <AnimatePresence mode="wait">
             {activeTab === 'store' && (
-              <Store 
+              <Store
                 games={games}
                 library={library}
                 filteredGames={filteredGames}
                 dbError={dbError}
                 onAddToLibrary={addToLibrary}
+                onTabChange={setActiveTab}
               />
             )}
 

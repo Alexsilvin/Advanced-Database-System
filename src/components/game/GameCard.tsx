@@ -5,9 +5,10 @@ interface GameCardProps {
   game: Game;
   onBuy: () => void;
   owned: boolean;
+  onViewLibrary?: () => void;
 }
 
-export default function GameCard({ game, onBuy, owned }: GameCardProps) {
+export default function GameCard({ game, onBuy, owned, onViewLibrary }: GameCardProps) {
   return (
     <div className="neon-border rounded-xl overflow-hidden bg-black/40 flex flex-col group">
       <div className="relative h-48 overflow-hidden">
@@ -26,17 +27,21 @@ export default function GameCard({ game, onBuy, owned }: GameCardProps) {
         <p className="text-xs text-white/60 line-clamp-2 mb-4 font-mono">{game.description}</p>
         <div className="mt-auto flex items-center justify-between">
           <span className="text-xl font-black text-neon-magenta italic">${game.price}</span>
-          <button 
-            onClick={onBuy}
-            disabled={owned}
-            className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${
-              owned 
-                ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default' 
-                : 'bg-neon-cyan text-black hover:scale-105 active:scale-95'
-            }`}
-          >
-            {owned ? 'OWNED' : 'ACQUIRE'}
-          </button>
+          {owned ? (
+            <button
+              onClick={onViewLibrary}
+              className="px-4 py-1.5 rounded-lg text-xs font-black transition-all bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/30 hover:bg-neon-cyan/20 active:scale-95"
+            >
+              IN_LIBRARY →
+            </button>
+          ) : (
+            <button
+              onClick={onBuy}
+              className="px-4 py-1.5 rounded-lg text-xs font-black transition-all bg-neon-cyan text-black hover:scale-105 active:scale-95"
+            >
+              ACQUIRE
+            </button>
+          )}
         </div>
       </div>
     </div>

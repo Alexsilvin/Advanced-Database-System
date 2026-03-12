@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Terminal, Zap } from 'lucide-react';
-import { Game } from '../types';
+import { Game, TabType } from '../types';
 import GameCard from '../components/game/GameCard';
 
 interface StoreProps {
@@ -10,9 +10,10 @@ interface StoreProps {
   filteredGames: Game[];
   dbError: string | null;
   onAddToLibrary: (gameId: number) => void;
+  onTabChange: (tab: TabType) => void;
 }
 
-export default function Store({ games, library, filteredGames, dbError, onAddToLibrary }: StoreProps) {
+export default function Store({ games, library, filteredGames, dbError, onAddToLibrary, onTabChange }: StoreProps) {
   return (
     <motion.div 
       key="store"
@@ -57,10 +58,11 @@ export default function Store({ games, library, filteredGames, dbError, onAddToL
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredGames.map((game) => (
           <div key={game.id}>
-            <GameCard 
-              game={game} 
+            <GameCard
+              game={game}
               onBuy={() => onAddToLibrary(game.id)}
               owned={library.includes(game.id)}
+              onViewLibrary={() => onTabChange('library')}
             />
           </div>
         ))}

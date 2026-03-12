@@ -52,10 +52,10 @@ export default function App() {
       
       <Header searchTerm={searchTerm} onSearchChange={setSearchTerm} />
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8 flex gap-8">
+      <main className="flex-1 flex">
         <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
-        <div className="flex-1">
+        <div className="flex-1 py-8 px-6 min-w-0">
           <AnimatePresence mode="wait">
             {activeTab === 'store' && (
               <Store

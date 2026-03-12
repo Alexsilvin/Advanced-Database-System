@@ -1,0 +1,9 @@
+{
+  "name": "NEON-GRID: Game Nexus",
+  "description": "A retro-futurist glitch-art game distribution platform. Buy, download, and play games in a high-fidelity cyberpunk environment.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}

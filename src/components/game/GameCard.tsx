@@ -6,10 +6,11 @@ import { Zap } from 'lucide-react';
 interface GameCardProps {
   game: Game;
   onBuy: () => void;
+  onSelect: () => void;
   owned: boolean;
 }
 
-export default function GameCard({ game, onBuy, owned }: GameCardProps) {
+export default function GameCard({ game, onBuy, onSelect, owned }: GameCardProps) {
   return (
     <motion.div
       whileHover={{ y: -8 }}
@@ -32,6 +33,10 @@ export default function GameCard({ game, onBuy, owned }: GameCardProps) {
               onBuy();
             }}
             disabled={owned}
+            className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${owned
+                ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default'
+                : 'bg-neon-cyan text-black hover:scale-105 active:scale-95'
+              }`}
             className={`p-4 rounded-full transition-transform active:scale-90 ${owned ? 'bg-green-500/20 text-green-400' : 'bg-white text-black hover:bg-neon-cyan'
               }`}
           >

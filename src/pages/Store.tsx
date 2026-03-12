@@ -70,6 +70,7 @@ export default function Store({ games, library, filteredGames, dbError, onAddToL
               key={`trending-${game.id}`}
               game={game}
               onBuy={() => onAddToLibrary(game.id)}
+              onSelect={() => onSelectGame(game)}
               owned={library.includes(game.id)}
             />
           ))}

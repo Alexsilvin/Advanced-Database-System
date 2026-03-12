@@ -7,7 +7,7 @@ export interface Game {
   category: string;
 }
 
-export type TabType = 'store' | 'library' | 'friends';
+export type TabType = 'store' | 'library' | 'friends' | 'bucket' | 'notifications';
 
 export type FriendStatus = 'online' | 'offline' | 'playing';
 

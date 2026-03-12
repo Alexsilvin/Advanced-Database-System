@@ -24,7 +24,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const isGlitching = useGlitchEffect();
 
   useEffect(() => {

@@ -10,9 +10,10 @@ interface StoreProps {
   filteredGames: Game[];
   dbError: string | null;
   onAddToLibrary: (gameId: number) => void;
+  onSelectGame: (game: Game) => void;
 }
 
-export default function Store({ games, library, filteredGames, dbError, onAddToLibrary }: StoreProps) {
+export default function Store({ games, library, filteredGames, dbError, onAddToLibrary, onSelectGame }: StoreProps) {
   return (
     <motion.div 
       key="store"
@@ -57,9 +58,10 @@ export default function Store({ games, library, filteredGames, dbError, onAddToL
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredGames.map((game) => (
           <div key={game.id}>
-            <GameCard 
-              game={game} 
+            <GameCard
+              game={game}
               onBuy={() => onAddToLibrary(game.id)}
+              onSelect={() => onSelectGame(game)}
               owned={library.includes(game.id)}
             />
           </div>

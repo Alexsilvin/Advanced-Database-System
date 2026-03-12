@@ -4,16 +4,24 @@ import { Game } from '../../types';
 interface GameCardProps {
   game: Game;
   onBuy: () => void;
+  onSelect: () => void;
   owned: boolean;
 }
 
-export default function GameCard({ game, onBuy, owned }: GameCardProps) {
+export default function GameCard({ game, onBuy, onSelect, owned }: GameCardProps) {
   return (
-    <div className="neon-border rounded-xl overflow-hidden bg-black/40 flex flex-col group">
+    <div
+      className="neon-border rounded-xl overflow-hidden bg-black/40 flex flex-col group cursor-pointer"
+      onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && onSelect()}
+      aria-label={`View details for ${game.title}`}
+    >
       <div className="relative h-48 overflow-hidden">
-        <img 
-          src={game.image} 
-          alt={game.title} 
+        <img
+          src={game.image}
+          alt={game.title}
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
           referrerPolicy="no-referrer"
         />
@@ -26,12 +34,12 @@ export default function GameCard({ game, onBuy, owned }: GameCardProps) {
         <p className="text-xs text-white/60 line-clamp-2 mb-4 font-mono">{game.description}</p>
         <div className="mt-auto flex items-center justify-between">
           <span className="text-xl font-black text-neon-magenta italic">${game.price}</span>
-          <button 
-            onClick={onBuy}
+          <button
+            onClick={(e) => { e.stopPropagation(); onBuy(); }}
             disabled={owned}
             className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${
-              owned 
-                ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default' 
+              owned
+                ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default'
                 : 'bg-neon-cyan text-black hover:scale-105 active:scale-95'
             }`}
           >

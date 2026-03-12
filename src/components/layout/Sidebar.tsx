@@ -10,20 +10,20 @@ interface SidebarProps {
 export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   return (
     <nav className="hidden lg:flex flex-col gap-2 w-64">
-      <NavButton 
-        active={activeTab === 'store'} 
+      <NavButton
+        active={activeTab === 'store'}
         onClick={() => onTabChange('store')}
         icon={<ShoppingBag className="w-5 h-5" />}
         label="THE STORE"
       />
-      <NavButton 
-        active={activeTab === 'library'} 
+      <NavButton
+        active={activeTab === 'library'}
         onClick={() => onTabChange('library')}
         icon={<Gamepad2 className="w-5 h-5" />}
         label="MY LIBRARY"
       />
-      <NavButton 
-        active={activeTab === 'friends'} 
+      <NavButton
+        active={activeTab === 'friends'}
         onClick={() => onTabChange('friends')}
         icon={<Users className="w-5 h-5" />}
         label="GRID FRIENDS"
@@ -47,18 +47,18 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
 
 function NavButton({ active, onClick, icon, label }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string }) {
   return (
-    <button 
+    <button
       onClick={onClick}
       className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group ${
-        active 
-          ? 'bg-neon-cyan text-black font-black shadow-[0_0_20px_rgba(0,243,255,0.3)]' 
+        active
+          ? 'bg-neon-cyan text-black font-black shadow-[0_0_20px_rgba(0,243,255,0.3)]'
           : 'text-white/60 hover:bg-white/5 hover:text-white'
       }`}
     >
       <span className={`${active ? 'text-black' : 'text-neon-cyan group-hover:scale-110 transition-transform'}`}>
         {icon}
       </span>
-      <span className="text-sm tracking-tighter italic">{label}</span>
+      <span className="text-sm tracking-tighter italic flex-1">{label}</span>
     </button>
   );
 }

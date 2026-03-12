@@ -11,9 +11,10 @@ interface StoreProps {
   dbError: string | null;
   onAddToLibrary: (gameId: number) => void;
   onTabChange: (tab: TabType) => void;
+  onSelectGame: (game: Game) => void;
 }
 
-export default function Store({ games, library, filteredGames, dbError, onAddToLibrary, onTabChange }: StoreProps) {
+export default function Store({ games, library, filteredGames, dbError, onAddToLibrary, onTabChange, onSelectGame }: StoreProps) {
   return (
     <motion.div 
       key="store"
@@ -63,6 +64,7 @@ export default function Store({ games, library, filteredGames, dbError, onAddToL
               onBuy={() => onAddToLibrary(game.id)}
               owned={library.includes(game.id)}
               onViewLibrary={() => onTabChange('library')}
+              onSelectGame={() => onSelectGame(game)}
             />
           </div>
         ))}

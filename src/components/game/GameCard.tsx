@@ -6,11 +6,12 @@ interface GameCardProps {
   onBuy: () => void;
   owned: boolean;
   onViewLibrary?: () => void;
+  onSelectGame?: () => void;
 }
 
-export default function GameCard({ game, onBuy, owned, onViewLibrary }: GameCardProps) {
+export default function GameCard({ game, onBuy, owned, onViewLibrary, onSelectGame }: GameCardProps) {
   return (
-    <div className="neon-border rounded-xl overflow-hidden bg-black/40 flex flex-col group">
+    <div onClick={onSelectGame} className="neon-border rounded-xl overflow-hidden bg-black/40 flex flex-col group cursor-pointer">
       <div className="relative h-48 overflow-hidden">
         <img 
           src={game.image} 
@@ -29,14 +30,14 @@ export default function GameCard({ game, onBuy, owned, onViewLibrary }: GameCard
           <span className="text-xl font-black text-neon-magenta italic">${game.price}</span>
           {owned ? (
             <button
-              onClick={onViewLibrary}
+              onClick={(e) => { e.stopPropagation(); onViewLibrary?.(); }}
               className="px-4 py-1.5 rounded-lg text-xs font-black transition-all bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/30 hover:bg-neon-cyan/20 active:scale-95"
             >
               IN_LIBRARY →
             </button>
           ) : (
             <button
-              onClick={onBuy}
+              onClick={(e) => { e.stopPropagation(); onBuy(); }}
               className="px-4 py-1.5 rounded-lg text-xs font-black transition-all bg-neon-cyan text-black hover:scale-105 active:scale-95"
             >
               ACQUIRE

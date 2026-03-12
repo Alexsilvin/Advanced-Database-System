@@ -52,6 +52,33 @@
     bottom: 100%;
     animation: scanline 10s linear infinite;
   }
+
+  .download-progress {
+    appearance: none;
+    border: 0;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+
+  .download-progress::-webkit-progress-bar {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+  }
+
+  .download-progress::-webkit-progress-value {
+    background: #00f3ff;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.8);
+    border-radius: 9999px;
+    transition: width 0.3s ease;
+  }
+
+  .download-progress::-moz-progress-bar {
+    background: #00f3ff;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.8);
+    border-radius: 9999px;
+    transition: width 0.3s ease;
+  }
 }
 
 @keyframes glitch {

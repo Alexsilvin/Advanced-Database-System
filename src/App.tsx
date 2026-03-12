@@ -104,7 +104,11 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="p-2 hover:bg-white/5 rounded-full relative">
+            <button
+              className="p-2 hover:bg-white/5 rounded-full relative"
+              aria-label="Open notifications"
+              title="Notifications"
+            >
               <Bell className="w-5 h-5 text-white/60" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-neon-magenta rounded-full shadow-[0_0_8px_rgba(255,0,255,0.8)]" />
             </button>
@@ -141,7 +145,7 @@ export default function App() {
             label="GRID FRIENDS"
           />
           <div className="mt-auto pt-8 border-t border-white/10 flex flex-col gap-4">
-            <div className="p-4 rounded-xl bg-gradient-to-br from-neon-cyan/10 to-transparent border border-neon-cyan/20">
+            <div className="p-4 rounded-xl bg-linear-to-br from-neon-cyan/10 to-transparent border border-neon-cyan/20">
               <p className="text-[10px] font-mono text-neon-cyan mb-1 uppercase tracking-widest">System Status</p>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
@@ -169,10 +173,11 @@ export default function App() {
                 <div className="relative h-64 rounded-2xl overflow-hidden border border-neon-cyan/30 group">
                   <img 
                     src="https://picsum.photos/seed/cyberpunk/1200/600" 
+                    alt="Featured game banner for Ultra-Glitch: Revenge"
                     className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-t from-black via-black/20 to-transparent" />
                   <div className="absolute bottom-8 left-8 space-y-2">
                     <span className="px-2 py-1 bg-neon-cyan text-black text-[10px] font-black uppercase tracking-tighter">Featured Release</span>
                     <h2 className="text-4xl font-black tracking-tighter italic">ULTRA-GLITCH: REVENGE</h2>
@@ -277,16 +282,31 @@ export default function App() {
 
       {/* Mobile Nav */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-lg border-t border-white/10 px-6 py-3 flex justify-between items-center z-50">
-        <button onClick={() => setActiveTab('store')} className={activeTab === 'store' ? 'text-neon-cyan' : 'text-white/40'}>
+        <button
+          onClick={() => setActiveTab('store')}
+          className={activeTab === 'store' ? 'text-neon-cyan' : 'text-white/40'}
+          aria-label="Open store"
+          title="Store"
+        >
           <ShoppingBag className="w-6 h-6" />
         </button>
-        <button onClick={() => setActiveTab('library')} className={activeTab === 'library' ? 'text-neon-cyan' : 'text-white/40'}>
+        <button
+          onClick={() => setActiveTab('library')}
+          className={activeTab === 'library' ? 'text-neon-cyan' : 'text-white/40'}
+          aria-label="Open library"
+          title="Library"
+        >
           <Gamepad2 className="w-6 h-6" />
         </button>
-        <button onClick={() => setActiveTab('friends')} className={activeTab === 'friends' ? 'text-neon-cyan' : 'text-white/40'}>
+        <button
+          onClick={() => setActiveTab('friends')}
+          className={activeTab === 'friends' ? 'text-neon-cyan' : 'text-white/40'}
+          aria-label="Open friends"
+          title="Friends"
+        >
           <Users className="w-6 h-6" />
         </button>
-        <button className="text-white/40">
+        <button className="text-white/40" aria-label="Open profile" title="Profile">
           <User className="w-6 h-6" />
         </button>
       </div>
@@ -378,6 +398,7 @@ function LibraryItem({ game }: { game: Game }) {
     <div className="p-4 bg-white/5 border border-white/10 rounded-2xl flex items-center gap-4 group hover:border-neon-cyan/30 transition-colors">
       <img 
         src={game.image} 
+        alt={`${game.title} cover art`}
         className="w-20 h-20 rounded-lg object-cover border border-white/10"
         referrerPolicy="no-referrer"
       />
@@ -386,12 +407,12 @@ function LibraryItem({ game }: { game: Game }) {
         <p className="text-[10px] font-mono text-white/40 uppercase">Last Played: Never</p>
         
         {isDownloading && (
-          <div className="mt-2 w-full bg-white/5 h-1 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-neon-cyan shadow-[0_0_10px_rgba(0,243,255,0.8)] transition-all duration-300" 
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+          <progress
+            className="download-progress mt-2 w-full h-1"
+            value={progress}
+            max={100}
+            aria-label={`${game.title} download progress`}
+          />
         )}
       </div>
       
@@ -399,6 +420,8 @@ function LibraryItem({ game }: { game: Game }) {
         <button 
           onClick={startDownload}
           className="p-3 bg-white/5 hover:bg-neon-cyan hover:text-black rounded-xl transition-all"
+          aria-label={`Download ${game.title}`}
+          title={`Download ${game.title}`}
         >
           <Download className="w-5 h-5" />
         </button>
@@ -424,7 +447,7 @@ function FriendCard({ username, status, game }: { username: string, status: 'onl
   return (
     <div className="p-4 bg-white/5 border border-white/10 rounded-xl flex items-center gap-4 hover:bg-white/10 transition-colors">
       <div className="relative">
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-white/10 to-white/5 border border-white/20 flex items-center justify-center">
+        <div className="w-12 h-12 rounded-full bg-linear-to-br from-white/10 to-white/5 border border-white/20 flex items-center justify-center">
           <User className="w-6 h-6 text-white/40" />
         </div>
         <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-black ${
@@ -438,7 +461,11 @@ function FriendCard({ username, status, game }: { username: string, status: 'onl
           {status === 'playing' ? `Playing: ${game}` : status}
         </p>
       </div>
-      <button className="p-2 text-white/20 hover:text-neon-cyan transition-colors">
+      <button
+        className="p-2 text-white/20 hover:text-neon-cyan transition-colors"
+        aria-label={`Open chat with ${username}`}
+        title={`Message ${username}`}
+      >
         <Terminal className="w-4 h-4" />
       </button>
     </div>

@@ -5,9 +5,24 @@ export interface Game {
   description: string;
   image: string;
   category: string;
+  rating?: string;
+  minSpecs?: {
+    os: string;
+    processor: string;
+    memory: string;
+    graphics: string;
+    storage: string;
+  };
+  recSpecs?: {
+    os: string;
+    processor: string;
+    memory: string;
+    graphics: string;
+    storage: string;
+  };
 }
 
-export type TabType = 'store' | 'library' | 'friends' | 'bucket' | 'notifications';
+export type TabType = 'store' | 'library' | 'friends' | 'bucket' | 'notifications' | 'game-detail';
 
 export type FriendStatus = 'online' | 'offline' | 'playing';
 

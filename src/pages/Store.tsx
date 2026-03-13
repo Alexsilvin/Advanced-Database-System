@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Terminal, ChevronRight } from 'lucide-react';
-import { Game } from '../types';
+import { Game, TabType } from '../types';
 import GameCard from '../components/game/GameCard';
 import FeaturedCarousel from '../components/game/FeaturedCarousel';
 
@@ -12,6 +12,7 @@ interface StoreProps {
   dbError: string | null;
   onAddToLibrary: (gameId: number) => void;
   onSelectGame: (game: Game) => void;
+  onTabChange: (tab: TabType) => void;
 }
 
 const SectionHeader = ({ title, showViewMore = true }: { title: string, showViewMore?: boolean }) => (
@@ -28,10 +29,10 @@ const SectionHeader = ({ title, showViewMore = true }: { title: string, showView
   </div>
 );
 
-export default function Store({ games, library, filteredGames, dbError, onAddToLibrary, onSelectGame }: StoreProps) {
+export default function Store({ games, library, filteredGames, dbError, onAddToLibrary, onSelectGame, onTabChange }: StoreProps) {
   // Categorize games for different sections
-  const trendingGames = [...filteredGames].reverse().slice(0, 6);
-  const newlyAdded = [...filteredGames].slice(0, 6);
+  const trendingGames = [...filteredGames].reverse();
+  const newlyAdded = [...filteredGames];
 
   return (
     <motion.div
@@ -46,6 +47,7 @@ export default function Store({ games, library, filteredGames, dbError, onAddToL
         <FeaturedCarousel
           games={games}
           onBuy={onAddToLibrary}
+          onSelect={onSelectGame}
           library={library}
         />
       )}
@@ -92,6 +94,8 @@ export default function Store({ games, library, filteredGames, dbError, onAddToL
                 onBuy={() => onAddToLibrary(game.id)}
                 onSelect={() => onSelectGame(game)}
                 owned={library.includes(game.id)}
+                onViewLibrary={() => onTabChange('library')}
+                onSelectGame={() => onSelectGame(game)}
               />
             ))}
           </div>

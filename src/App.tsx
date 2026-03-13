@@ -12,7 +12,7 @@ import Friends from './pages/Friends';
 import Bucket from './pages/Bucket';
 import Notifications from './pages/Notifications';
 import Login from './pages/Login';
-import GameDetailModal from './components/game/GameDetailModal';
+import GameDetail from './pages/GameDetail';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -41,6 +41,11 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSelectGame = (game: Game) => {
+    setSelectedGame(game);
+    setActiveTab('game-detail');
   };
 
   const addToLibrary = (gameId: number) => {
@@ -92,7 +97,7 @@ export default function App() {
           onTabChange={setActiveTab}
         />
 
-        <div className="flex-1 py-8 px-6 min-w-0">
+        <div className="flex-1">
           <AnimatePresence mode="wait">
             {activeTab === 'store' && (
               <Store
@@ -101,7 +106,19 @@ export default function App() {
                 filteredGames={filteredGames}
                 dbError={dbError}
                 onAddToLibrary={addToLibrary}
-                onSelectGame={setSelectedGame}
+                onSelectGame={handleSelectGame}
+                onTabChange={setActiveTab}
+              />
+            )}
+
+            {activeTab === 'game-detail' && (
+              <GameDetail
+                game={selectedGame}
+                owned={selectedGame ? library.includes(selectedGame.id) : false}
+                inBucket={selectedGame ? bucket.includes(selectedGame.id) : false}
+                onBack={() => setActiveTab('store')}
+                onAcquire={addToLibrary}
+                onAddToBucket={addToBucket}
               />
             )}
 
@@ -136,15 +153,6 @@ export default function App() {
       </main>
 
       <MobileNav activeTab={activeTab} onTabChange={setActiveTab} bucketCount={bucket.length} />
-
-      <GameDetailModal
-        game={selectedGame}
-        owned={selectedGame ? library.includes(selectedGame.id) : false}
-        inBucket={selectedGame ? bucket.includes(selectedGame.id) : false}
-        onClose={() => setSelectedGame(null)}
-        onAcquire={addToLibrary}
-        onAddToBucket={addToBucket}
-      />
 
       <footer className="mt-auto py-8 border-t border-white/5 text-center">
         <p className="text-[10px] font-mono text-white/20 tracking-[0.3em]">

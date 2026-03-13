@@ -12,11 +12,20 @@ interface GameCardProps {
   onSelectGame?: () => void;
 }
 
-export default function GameCard({ game, onBuy, onSelect, owned }: GameCardProps) {
+export default function GameCard({ game, onBuy, onSelect, owned, onViewLibrary, onSelectGame }: GameCardProps) {
+  const handleClick = () => {
+    if (onSelectGame) {
+      onSelectGame();
+    } else {
+      onSelect();
+    }
+  };
+
   return (
     <motion.div
       whileHover={{ y: -8 }}
-      className="group relative flex flex-col bg-[#121212] rounded-xl overflow-hidden border border-white/5 hover:border-neon-cyan/50 transition-colors duration-300 h-full"
+      onClick={handleClick}
+      className="group relative flex flex-col bg-[#121212] rounded-xl overflow-hidden border border-white/5 hover:border-neon-cyan/50 transition-colors duration-300 h-full cursor-pointer"
     >
       <div className="relative aspect-[3/4] overflow-hidden">
         <img
@@ -57,7 +66,15 @@ export default function GameCard({ game, onBuy, onSelect, owned }: GameCardProps
           <span className="text-xs font-mono text-white/40">Base Game</span>
           <div className="flex flex-col items-end">
             {owned ? (
-              <span className="text-[10px] font-black text-green-400 bg-green-400/10 px-2 py-0.5 rounded">OWNED</span>
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewLibrary?.();
+                }}
+                className={`text-[10px] font-black text-green-400 bg-green-400/10 px-2 py-0.5 rounded ${onViewLibrary ? 'cursor-pointer hover:bg-green-400/20' : ''}`}
+              >
+                OWNED
+              </span>
             ) : (
               <span className="text-sm font-black italic">
                 ${game.price}

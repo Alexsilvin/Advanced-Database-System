@@ -6,10 +6,11 @@ import { Game } from '../../types';
 interface FeaturedCarouselProps {
     games: Game[];
     onBuy: (gameId: number) => void;
+    onSelect: (game: Game) => void;
     library: number[];
 }
 
-export default function FeaturedCarousel({ games, onBuy, library }: FeaturedCarouselProps) {
+export default function FeaturedCarousel({ games, onBuy, onSelect, library }: FeaturedCarouselProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const featuredGames = games.slice(0, 5); // Use first 5 games as featured
 
@@ -47,7 +48,10 @@ export default function FeaturedCarousel({ games, onBuy, library }: FeaturedCaro
                         />
                         <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent" />
 
-                        <div className="absolute bottom-12 left-8 md:left-12 max-w-2xl space-y-4">
+                        <div
+                            className="absolute bottom-12 left-8 md:left-12 max-w-2xl space-y-4 cursor-pointer"
+                            onClick={() => onSelect(currentGame)}
+                        >
                             <motion.span
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -60,7 +64,7 @@ export default function FeaturedCarousel({ games, onBuy, library }: FeaturedCaro
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.3 }}
-                                className="text-5xl md:text-7xl font-black italic tracking-tighter leading-none"
+                                className="text-5xl md:text-7xl font-black italic tracking-tighter leading-none hover:text-neon-cyan transition-colors"
                             >
                                 {currentGame.title}
                             </motion.h2>
@@ -77,13 +81,14 @@ export default function FeaturedCarousel({ games, onBuy, library }: FeaturedCaro
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.5 }}
                                 className="pt-4 flex items-center gap-4"
+                                onClick={(e) => e.stopPropagation()}
                             >
                                 <button
                                     onClick={() => onBuy(currentGame.id)}
                                     disabled={isOwned}
                                     className={`px-8 py-3 font-black text-sm flex items-center gap-2 transition-all ${isOwned
-                                            ? 'bg-green-500/20 text-green-400 border border-green-500/40 cursor-default'
-                                            : 'bg-white text-black hover:bg-neon-cyan hover:scale-105 active:scale-95'
+                                        ? 'bg-green-500/20 text-green-400 border border-green-500/40 cursor-default'
+                                        : 'bg-white text-black hover:bg-neon-cyan hover:scale-105 active:scale-95'
                                         }`}
                                 >
                                     <Zap className="w-4 h-4" />

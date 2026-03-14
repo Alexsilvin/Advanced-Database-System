@@ -4,6 +4,7 @@ import { Game, TabType } from './types';
 import { fetchGames } from './services/api';
 import { useGlitchEffect } from './hooks/useGlitchEffect';
 import Header from './components/layout/Header';
+import CursorGlow from './components/layout/CursorGlow';
 import Sidebar from './components/layout/Sidebar';
 import MobileNav from './components/layout/MobileNav';
 import Store from './pages/Store';
@@ -81,6 +82,7 @@ export default function App() {
 
   return (
     <div className={`min-h-screen flex flex-col relative ${isGlitching ? 'glitch-active' : ''}`}>
+      <CursorGlow />
       <div className="scanline" />
 
       <Header

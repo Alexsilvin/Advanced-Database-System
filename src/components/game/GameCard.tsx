@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Game } from '../../types';
-import { Zap } from 'lucide-react';
 
 interface GameCardProps {
   game: Game;
@@ -35,23 +34,6 @@ export default function GameCard({ game, onBuy, onSelect, owned, onViewLibrary, 
           referrerPolicy="no-referrer"
         />
         <div className="absolute inset-0 bg-linear-to-t from-[#121212] via-transparent to-transparent opacity-60" />
-
-        {/* Quick Add Overlay */}
-        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onBuy();
-            }}
-            disabled={owned}
-            className={`p-3 rounded-full transition-all active:scale-95 flex items-center justify-center ${owned
-              ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default'
-              : 'bg-white text-black hover:bg-neon-cyan hover:scale-105 active:scale-90 shadow-lg'
-              }`}
-          >
-            <Zap className={`w-6 h-6 ${owned ? 'opacity-50' : ''}`} />
-          </button>
-        </div>
 
         <div className="absolute top-3 left-3 px-2 py-0.5 bg-black/80 backdrop-blur-md rounded text-[10px] font-black tracking-widest text-white/70 uppercase">
           {game.category}

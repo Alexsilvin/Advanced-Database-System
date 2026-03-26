@@ -125,6 +125,8 @@ export default function Library({ games, library, onTabChange }: LibraryProps) {
             <select
               value={sortOrder}
               onChange={e => setSortOrder(e.target.value as SortType)}
+              aria-label="Sort library games"
+              title="Sort library games"
               className="bg-white/5 border border-white/10 rounded-lg text-[10px] font-mono px-2 py-1.5 focus:outline-none focus:border-neon-cyan/50 text-white/60 cursor-pointer"
             >
               <option value="recent">Sort: Recent</option>

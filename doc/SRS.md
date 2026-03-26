@@ -3,23 +3,23 @@
 ## 1. Introduction
 
 ### 1.1 Purpose
-This Software Requirements Specification defines the current, implemented behavior of the Advanced Database System project (NEONGRID game-store web application). It reflects what is already present in the codebase as of March 2026.
+This document defines requirements for a complete NEONGRID gaming platform while preserving traceability to the currently implemented project baseline.
 
 ### 1.2 Scope
-The system is a single-page web application for browsing a game catalog, viewing game details, managing a local in-memory library and acquisition bucket, viewing mock friends/notifications, and simulating game installation in a stylized neon interface.
+NEONGRID is a web-based gaming platform that enables users to discover games, purchase and manage their library, connect with friends, receive notifications, and access account and support services.
 
-The project includes:
-- Frontend: React + TypeScript + Vite + Tailwind CSS.
-- Runtime server: Express development server exposing REST endpoints.
-- Optional PostgreSQL integration using DATABASE_URL.
-- Netlify serverless function for deployment-time API routing.
+This SRS includes:
+- Current implementation baseline (as-is).
+- Target production feature set (to-be).
+- Functional and non-functional requirements.
+- Data, security, and integration requirements.
 
-### 1.3 Definitions, Acronyms, and Abbreviations
+### 1.3 Definitions and Acronyms
 - SRS: Software Requirements Specification.
-- SPA: Single Page Application.
 - UI: User Interface.
 - API: Application Programming Interface.
 - DB: Database.
+- RBAC: Role-Based Access Control.
 - FR: Functional Requirement.
 - NFR: Non-Functional Requirement.
 
@@ -30,194 +30,231 @@ The project includes:
 - netlify/functions/games.mts
 - src/App.tsx
 - src/services/api.ts
-- src/types/index.ts
 - src/pages/*
 - src/components/*
 
-### 1.5 Document Overview
-Section 2 describes the system context and constraints. Section 3 lists detailed functional and non-functional requirements derived from the current implementation.
+### 1.5 Intended Audience
+- Product owners and stakeholders.
+- Developers and testers.
+- DevOps and security reviewers.
+- Instructors and evaluators.
 
----
-
-## 2. Overall Description
+## 2. Product Overview
 
 ### 2.1 Product Perspective
-The system is currently a client-heavy SPA with lightweight backend endpoints. Core user state (login session flag, selected tab, library, bucket, installation status) is stored in frontend memory and is not persisted across reloads.
+NEONGRID is a single-page application with backend API services and optional PostgreSQL persistence. The current codebase provides core store and library interactions, while this SRS defines the complete platform expected for production.
 
-Backend data source behavior:
-- If PostgreSQL is configured and available, game data may be read from DB tables.
-- If DB is unavailable or empty, mock game data is returned.
+### 2.2 User Classes
+- Guest user: browses public store content.
+- Registered user: purchases and manages games.
+- Premium user: receives membership benefits.
+- Moderator: handles reports and moderation workflows.
+- Administrator: manages catalog, users, and platform settings.
 
-### 2.2 Product Functions (Implemented)
-- Login screen with immediate entry flow (no credential validation).
-- Store page with featured carousel, category sections, and searchable catalog.
-- Game details page with title, description, price, category, rating, and min/recommended specs.
-- Add game to library directly or via acquisition bucket.
-- Bucket management with remove item and acquire all actions.
-- Library page with grid/list modes, sorting (recent/name/hours), and installed filter.
-- Simulated download/install progress per game in library items.
-- Friends page with mock contacts.
-- Notifications page with mock notifications, dismiss, and mark-all-read.
-- Desktop sidebar and mobile bottom navigation.
-- Header search, notifications shortcut, and bucket shortcut.
+### 2.3 Operating Environment
+- Web client on modern desktop and mobile browsers.
+- Node.js runtime for backend services.
+- PostgreSQL for persistent storage.
+- Netlify or equivalent hosting for frontend and serverless APIs.
 
-### 2.3 User Classes and Characteristics
-- End user (player): Browses catalog, acquires games, manages library.
-- Project developers/maintainers: Configure DB connection and deploy runtime.
+### 2.4 Constraints
+- Frontend technology remains React + TypeScript + Vite.
+- REST JSON APIs are the primary integration mechanism.
+- Secrets must be provided via environment variables.
 
-### 2.4 Operating Environment
-- Node.js runtime for local development.
-- Browser-based client (modern desktop and mobile browsers).
-- PostgreSQL (optional) via DATABASE_URL.
-- Netlify Functions runtime for deployed API routing.
+### 2.5 Assumptions
+- Payment gateway and email provider are available in production.
+- CDN or object storage is available for game assets.
+- Platform operates under relevant privacy and consumer law.
 
-### 2.5 Design and Implementation Constraints
-- Frontend stack is fixed to React 19 + TypeScript + Vite.
-- Styling uses Tailwind CSS v4 plus custom CSS effects.
-- API client calls /api/games only.
-- No persistent client state storage is implemented (no localStorage/sessionStorage usage for core state).
-- Authentication is visual/flow-only and does not enforce identity.
+## 3. As-Is Baseline (Current Implementation)
 
-### 2.6 Assumptions and Dependencies
-- Assumes API route /api/games is reachable in active environment.
-- Assumes image assets and/or URLs used by game cards are accessible.
-- Assumes DATABASE_URL is provided for DB-backed mode.
+### 3.1 Implemented Features
+1. Login entry page with visual-only sign-in flow.
+2. Game store browsing with search and category presentation.
+3. Game detail page with description, category, price, and hardware specs.
+4. Bucket management and direct acquisition to library state.
+5. Library with grid/list views and simulated install progress.
+6. Friends and notifications pages with mock data.
+7. Responsive navigation (desktop sidebar, mobile bottom navigation).
+8. API game retrieval with DB-first and mock fallback behavior.
 
----
+### 3.2 Known Limitations
+1. No real authentication or password validation.
+2. No persistent user state for library, bucket, installs, and notifications.
+3. Friends and notifications are not backend-driven.
+4. Limited write APIs and minimal account features.
 
-## 3. Specific Requirements
+## 4. To-Be Complete Platform Requirements
 
-## 3.1 External Interface Requirements
+## 4.1 Functional Requirements
 
-### 3.1.1 User Interface Requirements
-1. The system shall present a neon/cyber themed UI with animated transitions and glitch effects.
-2. The system shall provide desktop navigation using a left sidebar.
-3. The system shall provide mobile navigation using a fixed bottom nav.
-4. The header shall include a search input (desktop), notifications button, bucket button, and user badge.
-5. The login page shall include USER_ID and PASS_KEY fields with a CONNECT TO GRID button.
+### 4.1.1 Identity and Access
+- FR-1: The platform shall support user registration, login, logout, and password reset.
+- FR-2: The platform shall support secure session management with token refresh.
+- FR-3: The platform shall support optional social sign-in providers.
+- FR-4: The platform shall enforce role-based access (user, moderator, admin).
 
-### 3.1.2 Software Interface Requirements
-1. Frontend shall request game catalog data via HTTP GET /api/games.
-2. Local dev backend shall expose GET /api/games and GET /api/users.
-3. Netlify deployment shall route /api/* requests to /.netlify/functions/:splat.
-4. If DB is unavailable, backend layers shall return mock game catalog responses.
+### 4.1.2 User Profile and Account
+- FR-5: Users shall be able to edit profile information (display name, avatar, bio, region).
+- FR-6: Users shall be able to configure privacy settings for profile, activity, and friend requests.
+- FR-7: Users shall be able to view account security logs (recent sign-ins and devices).
+- FR-8: Users shall be able to manage saved payment methods and billing addresses.
 
-### 3.1.3 Communications Interface Requirements
-1. API communication shall use JSON payloads.
-2. Game list responses shall be arrays of objects compatible with Game type shape.
+### 4.1.3 Store and Discovery
+- FR-9: Users shall browse a catalog by genre, tags, platform, price, and discount filters.
+- FR-10: Users shall search games by title, publisher, tags, and partial keywords.
+- FR-11: Users shall view featured, trending, new releases, and recommended collections.
+- FR-12: Users shall view detailed game pages with trailers, screenshots, specs, reviews, and version notes.
+- FR-13: Users shall add/remove games from a wishlist.
+- FR-14: Users shall follow games and publishers for update alerts.
 
-## 3.2 Functional Requirements
+### 4.1.4 Pricing, Cart, and Checkout
+- FR-15: Users shall add and remove items in a persistent cart.
+- FR-16: Checkout shall support card and at least one digital wallet option.
+- FR-17: The system shall calculate taxes and final totals before payment confirmation.
+- FR-18: The system shall generate invoices and receipts for successful purchases.
+- FR-19: The platform shall support coupon and promotional code redemption.
 
-### 3.2.1 Authentication and Entry
-- FR-1: The system shall block access to application tabs until login action is triggered.
-- FR-2: The login submit action shall set application state to logged-in without validating credentials.
-- FR-3: The login sequence shall include a short transition delay before entering the main app.
+### 4.1.5 Library and Ownership
+- FR-20: Purchased games shall be permanently recorded in user library.
+- FR-21: Library shall support sort/filter by title, genre, install state, and playtime.
+- FR-22: Users shall install, pause, resume, and cancel downloads.
+- FR-23: The system shall preserve install status and progress after app refresh.
+- FR-24: Users shall be able to hide, favorite, and create custom collections.
 
-### 3.2.2 Game Catalog Retrieval
-- FR-4: On initial app load, the system shall request game catalog data once.
-- FR-5: If request succeeds with array data, games state shall be populated.
-- FR-6: If request fails or returns invalid payload, dbError shall be set and store shall show error panel.
-- FR-7: If backend DB query fails/offline, backend shall provide mock games as fallback.
+### 4.1.6 Social and Community
+- FR-25: Users shall send, accept, decline, and block friend requests.
+- FR-26: Users shall view friend presence status (online, offline, in-game).
+- FR-27: Users shall have direct messaging with read receipts and mute controls.
+- FR-28: Users shall be able to create private or public parties/lobbies.
+- FR-29: Users shall submit game ratings and text reviews.
+- FR-30: Users shall report abusive users, reviews, and chat content.
 
-### 3.2.3 Store and Search
-- FR-8: The system shall filter games by title using case-insensitive search term matching.
-- FR-9: The store shall render trending and most-downloaded sections from filtered data.
-- FR-10: The store shall render top-sellers panel from first five games in source list.
-- FR-11: Selecting a game card or featured item shall open game-detail tab for that game.
+### 4.1.7 Notifications and Activity
+- FR-31: The platform shall provide real-time and in-app notifications.
+- FR-32: Notification types shall include purchases, friend events, promotions, updates, and security alerts.
+- FR-33: Users shall configure notification preferences by channel (in-app/email/push).
+- FR-34: Users shall mark notifications as read, unread, archived, and deleted.
 
-### 3.2.4 Game Detail and Acquisition
-- FR-12: The game detail page shall display category, rating, price, description, and hardware specs.
-- FR-13: Users shall be able to add non-owned games to bucket.
-- FR-14: Users shall be able to acquire a game directly to library.
-- FR-15: A game already in library shall display owned state and download action.
+### 4.1.8 Recommendation and Personalization
+- FR-35: The platform shall provide personalized recommendations based on behavior.
+- FR-36: Recommendation logic shall use ownership, playtime, wishlist, and viewed content.
+- FR-37: Users shall be able to opt out of personalization features.
 
-### 3.2.5 Bucket Management
-- FR-16: Bucket tab shall list all games whose IDs are present in bucket state.
-- FR-17: Users shall be able to remove an item from bucket.
-- FR-18: Users shall be able to acquire all bucket items; acquired IDs are appended to library.
-- FR-19: Acquire-all action shall clear bucket after transfer.
+### 4.1.9 Admin and Operations
+- FR-38: Admins shall manage game catalog entries, pricing, media, and metadata.
+- FR-39: Admins shall publish discount campaigns with date windows and eligibility rules.
+- FR-40: Admins shall moderate user reviews and user-generated content.
+- FR-41: Admins shall suspend/reactivate accounts and enforce policy actions.
+- FR-42: Admins shall access platform analytics dashboards.
 
-### 3.2.6 Library Management
-- FR-20: Library tab shall show only games whose IDs exist in library state.
-- FR-21: Library shall support grid and list visual modes.
-- FR-22: Library shall support sorting by name (A-Z); other sort options are present but not fully differentiated in logic.
-- FR-23: Library installed filter shall show only items marked installed in current session.
-- FR-24: Library item install action shall simulate download progress from 0 to 100 and then mark installed.
+### 4.1.10 Support and Compliance
+- FR-43: Users shall create support tickets and view ticket status.
+- FR-44: The platform shall store terms acceptance and privacy consent logs.
+- FR-45: Users shall request account export and account deletion.
 
-### 3.2.7 Friends and Notifications
-- FR-25: Friends tab shall display predefined mock friends data.
-- FR-26: Notifications tab shall display predefined notifications data.
-- FR-27: Notifications tab shall support per-item dismiss action.
-- FR-28: Notifications tab shall support mark-all-read action.
+## 4.2 External Interface Requirements
 
-### 3.2.8 Navigation and Layout
-- FR-29: Desktop sidebar shall navigate among store, library, and friends tabs.
-- FR-30: Header icons and mobile nav shall navigate to notifications and bucket tabs.
-- FR-31: Footer shall display static system status text.
+### 4.2.1 UI Requirements
+1. The UI shall be responsive for mobile, tablet, and desktop.
+2. Core actions (buy, install, play, message) shall require no more than two interactions from their main screen.
+3. Error and empty states shall provide clear user guidance and recovery actions.
+4. The system shall provide accessibility support including keyboard navigation, focus indicators, and color-contrast compliance.
 
-### 3.2.9 Data Model Requirements
-- FR-32: Game entity shall include id, title, price, description, image, category.
-- FR-33: Game entity may include optional rating, minSpecs, and recSpecs.
-- FR-34: Friend entity shall include username and status, with optional current game.
+### 4.2.2 API Requirements
+1. APIs shall be versioned under /api/v1.
+2. APIs shall support authenticated and role-protected endpoints.
+3. APIs shall return standard error objects with code, message, and request identifier.
+4. APIs shall support pagination and filtering for list endpoints.
 
-## 3.3 Database Requirements
+### 4.2.3 Third-Party Interfaces
+1. Payment provider integration for transaction processing.
+2. Email provider integration for account and purchase communication.
+3. Object storage/CDN integration for media delivery.
+4. Optional telemetry provider for analytics and error monitoring.
 
-### 3.3.1 Local Dev Server Initialization
-When DATABASE_URL is available, startup initialization shall create tables if missing:
-- users(id, username, avatar)
-- games(id, title, price, description, image, category)
-- library(user_id, game_id)
-- friends(user_id, friend_id, status)
+## 4.3 Data Requirements
 
-### 3.3.2 Seeding Behavior
-- If games table exists and count is zero, seed data shall be inserted.
-- API may still return a larger mock list in fallback situations.
+### 4.3.1 Core Entities
+The platform shall maintain at least the following entities:
+- User
+- Session
+- Role and Permission
+- Game
+- Publisher
+- Price and Discount
+- Cart and CartItem
+- Order and Payment
+- LibraryEntry
+- WishlistEntry
+- Review
+- Friendship and FriendRequest
+- Message and Conversation
+- Notification
+- SupportTicket
+- AuditLog
 
-## 3.4 Non-Functional Requirements
+### 4.3.2 Data Integrity Rules
+1. A user cannot own duplicate entries for the same game.
+2. A game purchase must create both order and library records atomically.
+3. Deleting a user must follow configured retention and legal requirements.
+4. Monetary values shall be stored with fixed precision.
 
-### 3.4.1 Performance
-- NFR-1: Initial screen transitions should remain smooth under normal browser conditions.
-- NFR-2: Catalog filtering shall run client-side with immediate visual feedback.
+## 4.4 Non-Functional Requirements
 
-### 3.4.2 Reliability and Availability
-- NFR-3: System shall remain usable even when DB is unavailable by using mock game fallback.
-- NFR-4: Frontend shall handle failed game fetch by showing explicit error state.
+### 4.4.1 Performance
+- NFR-1: 95th percentile API response for catalog endpoints shall be less than 500 ms under target load.
+- NFR-2: Initial meaningful render shall complete within 3 seconds on broadband and modern devices.
+- NFR-3: Search results shall update within 300 ms for typical user queries.
 
-### 3.4.3 Security
-- NFR-5: No secure authentication/authorization is currently implemented; this is a known limitation.
-- NFR-6: Database credentials are expected via environment variable and not hardcoded.
+### 4.4.2 Reliability and Availability
+- NFR-4: Monthly uptime shall be at least 99.5 percent.
+- NFR-5: Critical purchase flows shall degrade gracefully during partial outages.
+- NFR-6: Automated backups shall run daily with restore validation.
 
-### 3.4.4 Usability
-- NFR-7: UI controls shall include visible iconography and labels suitable for desktop and mobile navigation.
-- NFR-8: Bucket and notification counters shall provide quick state awareness.
+### 4.4.3 Security
+- NFR-7: Passwords shall be hashed with an industry-standard adaptive hash function.
+- NFR-8: Sensitive data in transit shall be protected with TLS.
+- NFR-9: Privileged actions shall be audit-logged.
+- NFR-10: Rate limiting shall protect authentication and checkout endpoints.
 
-### 3.4.5 Maintainability
-- NFR-9: Codebase shall remain modular with separation across pages, components, services, hooks, and types.
-- NFR-10: TypeScript strict mode shall be enabled to improve type safety.
+### 4.4.4 Scalability
+- NFR-11: The system shall scale to at least 10,000 concurrent users through horizontal scaling.
+- NFR-12: Read-heavy endpoints shall support caching strategies.
 
-### 3.4.6 Portability
-- NFR-11: Application shall run in local dev server mode and Netlify deployment mode.
+### 4.4.5 Maintainability
+- NFR-13: Code shall maintain modular separation of UI, services, domain models, and infrastructure.
+- NFR-14: All public APIs shall be documented and version controlled.
+- NFR-15: CI shall enforce linting, type checks, and automated tests.
 
-## 3.5 Current Gaps (Observed from Implementation)
-1. Login does not validate username/password or persist sessions.
-2. Library, bucket, installed status, and notifications are not persisted between reloads.
-3. Friends and notifications are mock data only.
-4. Some interactive buttons (for example membership/upgrade prompts) are UI-only and not wired to backend actions.
-5. API currently centers on game retrieval; write operations for user/library/friends are not implemented.
+### 4.4.6 Usability and Accessibility
+- NFR-16: Primary workflows shall be understandable to first-time users without external documentation.
+- NFR-17: The platform shall target WCAG 2.1 AA compliance.
 
----
+## 4.5 Reporting and Analytics Requirements
+- FR-46: The platform shall track DAU/MAU, conversion, retention, and revenue metrics.
+- FR-47: Admin analytics shall include top-selling games, refund rates, and engagement trends.
+- FR-48: Event tracking shall support funnel analysis for browse-to-purchase behavior.
 
-## 4. Acceptance Criteria (Implementation-Reflective)
-1. A user can enter from login and access main app tabs.
-2. A user can search for games and open game details.
-3. A user can add games to bucket and acquire all to library.
-4. A user can install games in library and see progress simulation.
-5. Notifications can be dismissed and marked as read.
-6. If DB is unavailable, application still receives game data via fallback and remains functional.
+## 5. Traceability Matrix (As-Is to To-Be)
 
----
+1. Current store browsing maps to FR-9 through FR-12.
+2. Current bucket flow maps to FR-15 and FR-20 as baseline cart and ownership behavior.
+3. Current library simulation maps to FR-21 through FR-24.
+4. Current mock friends and notifications map to FR-25 through FR-34 as baseline UI scaffolding.
+5. Current DB fallback behavior supports NFR-5 style graceful degradation.
 
-## 5. Revision Information
-- Version: 1.0
+## 6. Acceptance Criteria for Complete Platform
+
+1. Users can create accounts, sign in securely, and recover passwords.
+2. Users can buy games, receive receipts, and see purchased games in persistent library.
+3. Users can manage wishlist, cart, and installed titles across sessions.
+4. Users can send friend requests, chat, and receive real-time notifications.
+5. Admins can manage catalog, discounts, moderation, and analytics.
+6. Platform meets defined security, performance, and availability NFR targets.
+
+## 7. Revision Information
+- Version: 2.0
 - Date: 2026-03-26
-- Basis: Current repository implementation (code-reflective SRS)
+- Document Type: Complete platform SRS with implementation baseline traceability

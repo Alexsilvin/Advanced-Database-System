@@ -75,8 +75,6 @@ export default function Store({ games, library, filteredGames, dbError, onAddToL
               onBuy={() => onAddToLibrary(game.id)}
               onSelect={() => onSelectGame(game)}
               owned={library.includes(game.id)}
-              onViewLibrary={() => onTabChange('library')}
-              onSelectGame={() => onSelectGame(game)}
             />
           ))}
         </div>
@@ -109,7 +107,7 @@ export default function Store({ games, library, filteredGames, dbError, onAddToL
               {games.slice(0, 5).map((game, i) => (
                 <div key={`top-${game.id}`} className="flex items-center gap-4 group cursor-pointer hover:bg-white/5 p-2 rounded-lg transition-colors">
                   <span className="text-xs font-black text-white/20 italic">{i + 1}</span>
-                  <img src={game.image} className="w-12 h-16 object-cover rounded shadow-lg" />
+                  <img src={game.image} alt={`${game.title} cover`} title={game.title} className="w-12 h-16 object-cover rounded shadow-lg" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold truncate group-hover:text-neon-cyan">{game.title}</p>
                     <p className="text-[10px] text-white/40 italic">${game.price}</p>

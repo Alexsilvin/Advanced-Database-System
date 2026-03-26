@@ -27,7 +27,7 @@ export default function GameCard({ game, onBuy, onSelect, owned, onViewLibrary, 
       onClick={handleClick}
       className="group relative flex flex-col bg-[#121212] rounded-xl overflow-hidden border border-white/5 hover:border-neon-cyan/50 transition-colors duration-300 h-full cursor-pointer"
     >
-      <div className="relative aspect-[3/4] overflow-hidden">
+      <div className="relative aspect-3/4 overflow-hidden">
         <img
           src={game.image}
           alt={game.title}
@@ -44,6 +44,8 @@ export default function GameCard({ game, onBuy, onSelect, owned, onViewLibrary, 
               onBuy();
             }}
             disabled={owned}
+            aria-label={owned ? `Already owned: ${game.title}` : `Acquire ${game.title}`}
+            title={owned ? `${game.title} is already owned` : `Acquire ${game.title}`}
             className={`p-3 rounded-full transition-all active:scale-95 flex items-center justify-center ${owned
               ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default'
               : 'bg-white text-black hover:bg-neon-cyan hover:scale-105 active:scale-90 shadow-lg'

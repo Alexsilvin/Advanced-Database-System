@@ -4,9 +4,10 @@ import { Friend } from '../../types';
 
 interface FriendCardProps {
   friend: Friend;
+  onMessage?: (username: string) => void;
 }
 
-export default function FriendCard({ friend }: FriendCardProps) {
+export default function FriendCard({ friend, onMessage }: FriendCardProps) {
   const { username, status, game } = friend;
   
   return (
@@ -27,6 +28,7 @@ export default function FriendCard({ friend }: FriendCardProps) {
         </p>
       </div>
       <button
+        onClick={() => onMessage?.(username)}
         className="p-2 text-white/20 hover:text-neon-cyan transition-colors"
         aria-label={`Open chat with ${username}`}
         title={`Message ${username}`}

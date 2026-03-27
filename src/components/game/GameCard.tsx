@@ -25,6 +25,15 @@ export default function GameCard({ game, onBuy, onSelect, owned, onViewLibrary, 
     <motion.div
       whileHover={{ y: -8 }}
       onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleClick();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open details for ${game.title}`}
       className="group relative flex flex-col bg-[#121212] rounded-xl overflow-hidden border border-white/5 hover:border-neon-cyan/50 transition-colors duration-300 h-full cursor-pointer"
     >
       <div className="relative aspect-3/4 overflow-hidden">

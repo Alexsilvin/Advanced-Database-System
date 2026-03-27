@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ShoppingCart, Trash2, Terminal, Zap } from 'lucide-react';
 import { Game, TabType } from '../types';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 interface BucketProps {
   games: Game[];
@@ -20,8 +21,12 @@ export default function Bucket({
   onAcquireAll,
   onTabChange,
 }: BucketProps) {
+  const [confirmAcquire, setConfirmAcquire] = useState(false);
+  const [pendingRemoveId, setPendingRemoveId] = useState<number | null>(null);
+
   const bucketGames = games.filter((g) => bucket.includes(g.id));
   const total = bucketGames.reduce((sum, g) => sum + g.price, 0);
+  const pendingRemoveGame = pendingRemoveId ? games.find((g) => g.id === pendingRemoveId) : null;
 
   return (
     <motion.div
@@ -40,6 +45,7 @@ export default function Bucket({
         <div className="h-64 flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl">
           <ShoppingCart className="w-12 h-12 text-white/20 mb-4" />
           <p className="text-white/40 font-mono">NO ITEMS IN ACQUISITION_QUEUE</p>
+          <p className="text-[11px] text-white/25 font-mono mt-1">Add games from the store to start your checkout run.</p>
           <button
             onClick={() => onTabChange('store')}
             className="mt-4 text-neon-cyan hover:underline font-mono text-sm"
@@ -69,7 +75,7 @@ export default function Bucket({
                   ${game.price}
                 </span>
                 <button
-                  onClick={() => onRemoveFromBucket(game.id)}
+                  onClick={() => setPendingRemoveId(game.id)}
                   className="p-2 text-white/20 hover:text-red-400 transition-colors shrink-0"
                   aria-label={`Remove ${game.title} from bucket`}
                   title="Remove from bucket"
@@ -90,7 +96,7 @@ export default function Bucket({
               </span>
             </div>
             <button
-              onClick={onAcquireAll}
+              onClick={() => setConfirmAcquire(true)}
               className="w-full py-3 bg-neon-magenta text-white font-black italic tracking-tighter hover:bg-neon-magenta/80 active:scale-95 transition-all flex items-center justify-center gap-2 rounded-lg magenta-glow"
             >
               <Zap className="w-5 h-5" />
@@ -106,6 +112,32 @@ export default function Bucket({
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmAcquire}
+        title="CONFIRM ACQUISITION"
+        description={`Acquire ${bucket.length} item(s) for $${total.toFixed(2)} and move them into your library?`}
+        confirmLabel="ACQUIRE NOW"
+        onCancel={() => setConfirmAcquire(false)}
+        onConfirm={() => {
+          onAcquireAll();
+          setConfirmAcquire(false);
+        }}
+      />
+
+      <ConfirmDialog
+        open={pendingRemoveId !== null}
+        title="REMOVE ITEM"
+        description={`Remove ${pendingRemoveGame?.title ?? 'this game'} from your acquisition queue?`}
+        confirmLabel="REMOVE"
+        onCancel={() => setPendingRemoveId(null)}
+        onConfirm={() => {
+          if (pendingRemoveId !== null) {
+            onRemoveFromBucket(pendingRemoveId);
+          }
+          setPendingRemoveId(null);
+        }}
+      />
     </motion.div>
   );
 }

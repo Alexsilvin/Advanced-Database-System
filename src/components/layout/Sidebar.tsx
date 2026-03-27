@@ -5,9 +5,10 @@ import { TabType } from '../../types';
 interface SidebarProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
+  onLogout: () => void;
 }
 
-export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
+export default function Sidebar({ activeTab, onTabChange, onLogout }: SidebarProps) {
   return (
     <nav className="hidden lg:flex flex-col gap-2 w-64 shrink-0 py-8 px-4 border-r border-white/5 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
       <NavButton 
@@ -36,7 +37,10 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
             <span className="text-xs font-mono">ALL SYSTEMS NOMINAL</span>
           </div>
         </div>
-        <button className="flex items-center gap-3 px-4 py-2 text-white/40 hover:text-red-400 transition-colors text-sm font-mono">
+        <button
+          onClick={onLogout}
+          className="flex items-center gap-3 px-4 py-2 text-white/40 hover:text-red-400 transition-colors text-sm font-mono"
+        >
           <LogOut className="w-4 h-4" />
           DISCONNECT
         </button>

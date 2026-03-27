@@ -12,6 +12,7 @@ export default function LibraryItem({ game, viewMode = 'grid', onInstalled }: Li
   const [isDownloading, setIsDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isLaunching, setIsLaunching] = useState(false);
 
   const mockHours = (game.id * 173 + 29) % 500;
 
@@ -29,6 +30,12 @@ export default function LibraryItem({ game, viewMode = 'grid', onInstalled }: Li
       }
       setProgress(p);
     }, 300);
+  };
+
+  const playGame = () => {
+    if (isLaunching) return;
+    setIsLaunching(true);
+    window.setTimeout(() => setIsLaunching(false), 1200);
   };
 
   const statusLabel = isInstalled ? 'READY' : isDownloading ? 'INSTALLING' : 'OFFLINE';
@@ -53,12 +60,12 @@ export default function LibraryItem({ game, viewMode = 'grid', onInstalled }: Li
           <h3 className="font-black italic tracking-tighter truncate">{game.title}</h3>
           <p className="text-[10px] font-mono text-white/40 uppercase">{mockHours} HRS PLAYED</p>
           {isDownloading && (
-            <div className="mt-1.5 w-full h-1 rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full bg-neon-cyan rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+            <progress
+              className="download-progress mt-1.5 w-full h-1"
+              value={Math.floor(progress)}
+              max={100}
+              aria-label={`Install progress for ${game.title}`}
+            />
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -79,6 +86,7 @@ export default function LibraryItem({ game, viewMode = 'grid', onInstalled }: Li
           )}
           {isInstalled && (
             <button
+              onClick={playGame}
               className="p-2.5 bg-neon-cyan/10 hover:bg-neon-cyan hover:text-black text-neon-cyan rounded-xl transition-all"
               aria-label={`Play ${game.title}`}
             >
@@ -97,7 +105,7 @@ export default function LibraryItem({ game, viewMode = 'grid', onInstalled }: Li
         !isInstalled && !isDownloading ? 'opacity-80' : ''
       }`}
     >
-      <div className="aspect-[3/4] relative overflow-hidden">
+      <div className="aspect-3/4 relative overflow-hidden">
         <img
           src={game.image}
           alt={`${game.title} cover art`}
@@ -128,18 +136,19 @@ export default function LibraryItem({ game, viewMode = 'grid', onInstalled }: Li
             <p className="text-[11px] font-mono text-neon-cyan animate-pulse tracking-widest uppercase">
               INSTALLING_DATA...
             </p>
-            <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full bg-neon-cyan rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+            <progress
+              className="download-progress w-full h-1.5"
+              value={Math.floor(progress)}
+              max={100}
+              aria-label={`Install progress for ${game.title}`}
+            />
             <span className="text-2xl font-black font-mono text-neon-cyan">{Math.floor(progress)}%</span>
           </div>
         ) : (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             {isInstalled ? (
               <button
+                onClick={playGame}
                 className="w-14 h-14 bg-neon-cyan rounded-full flex items-center justify-center text-black hover:scale-110 transition-transform shadow-[0_0_20px_rgba(0,243,255,0.5)]"
                 aria-label={`Play ${game.title}`}
               >
@@ -164,7 +173,7 @@ export default function LibraryItem({ game, viewMode = 'grid', onInstalled }: Li
           <span className={`text-[10px] font-bold font-mono uppercase ${statusColor}`}>{statusLabel}</span>
         </div>
         <p className="text-[10px] text-white/20 font-mono mt-0.5">
-          {isInstalled ? 'Last played: recently' : isDownloading ? 'Installing...' : 'Never played'}
+          {isLaunching ? 'Launching...' : isInstalled ? 'Last played: recently' : isDownloading ? 'Installing...' : 'Never played'}
         </p>
       </div>
     </div>

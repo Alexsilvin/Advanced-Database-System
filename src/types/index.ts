@@ -22,7 +22,7 @@ export interface Game {
   };
 }
 
-export type TabType = 'store' | 'library' | 'friends' | 'bucket' | 'notifications' | 'game-detail';
+export type TabType = 'store' | 'library' | 'friends' | 'bucket' | 'notifications' | 'game-detail' | 'profile';
 
 export type FriendStatus = 'online' | 'offline' | 'playing';
 

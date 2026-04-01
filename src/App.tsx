@@ -15,6 +15,7 @@ import Bucket from './pages/Bucket';
 import Notifications from './pages/Notifications';
 import Login from './pages/Login';
 import GameDetail from './pages/GameDetail';
+import Profile from './pages/Profile';
 
 const LS_KEYS = {
   isLoggedIn: 'neon-grid:is-logged-in',
@@ -337,6 +338,14 @@ export default function App() {
 
             {activeTab === 'notifications' && (
               <Notifications />
+            )}
+
+            {activeTab === 'profile' && (
+              <Profile
+                libraryCount={library.length}
+                friendsCount={4}
+                onLogout={() => setIsLoggedIn(false)}
+              />
             )}
           </AnimatePresence>
         </div>

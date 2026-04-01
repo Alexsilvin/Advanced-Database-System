@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ChefHat as CPU, Monitor, HardDrive, Cpu, Download, ArrowLeft, Star, ShieldCheck, Zap, ShoppingCart } from 'lucide-react';
 import { Game } from '../types';
@@ -25,7 +25,15 @@ const SpecItem = ({ icon: Icon, label, value }: { icon: any, label: string, valu
 );
 
 export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, onAddToBucket }: GameDetailProps) {
+    const [isInitializing, setIsInitializing] = useState(false);
+
     if (!game) return null;
+
+    const startDownload = () => {
+        if (isInitializing) return;
+        setIsInitializing(true);
+        window.setTimeout(() => setIsInitializing(false), 1400);
+    };
 
     return (
         <motion.div
@@ -44,7 +52,7 @@ export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, o
             </button>
 
             {/* Hero Header */}
-            <div className="relative h-[400px] rounded-3xl overflow-hidden border border-white/10 group">
+            <div className="relative h-100 rounded-3xl overflow-hidden border border-white/10 group">
                 <img
                     src={game.image}
                     alt={game.title}
@@ -161,10 +169,12 @@ export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, o
                                 </>
                             ) : (
                                 <button
+                                    onClick={startDownload}
+                                    disabled={isInitializing}
                                     className="w-full py-4 bg-green-500 text-black rounded-xl text-xs font-black tracking-widest flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)]"
                                 >
                                     <Download className="w-4 h-4" />
-                                    INITIALIZE_DOWNLOAD
+                                    {isInitializing ? 'INITIALIZING...' : 'INITIALIZE_DOWNLOAD'}
                                 </button>
                             )}
                         </div>

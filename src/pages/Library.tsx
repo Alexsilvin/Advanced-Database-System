@@ -7,6 +7,8 @@ import {
 import { Game, TabType, Friend } from '../types';
 import LibraryItem from '../components/game/LibraryItem';
 
+const LIBRARY_PREFS_KEY = 'neon-grid:library-prefs';
+
 interface LibraryProps {
   games: Game[];
   library: number[];
@@ -32,10 +34,47 @@ const categoryFilters: { key: FilterType; label: string; icon: React.ReactNode }
 ];
 
 export default function Library({ games, library, onTabChange }: LibraryProps) {
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [sortOrder, setSortOrder] = useState<SortType>('recent');
+  const [activeFilter, setActiveFilter] = useState<FilterType>(() => {
+    try {
+      const raw = localStorage.getItem(LIBRARY_PREFS_KEY);
+      if (!raw) return 'all';
+      const parsed = JSON.parse(raw) as { activeFilter?: FilterType };
+      return parsed.activeFilter ?? 'all';
+    } catch {
+      return 'all';
+    }
+  });
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    try {
+      const raw = localStorage.getItem(LIBRARY_PREFS_KEY);
+      if (!raw) return 'grid';
+      const parsed = JSON.parse(raw) as { viewMode?: 'grid' | 'list' };
+      return parsed.viewMode ?? 'grid';
+    } catch {
+      return 'grid';
+    }
+  });
+  const [sortOrder, setSortOrder] = useState<SortType>(() => {
+    try {
+      const raw = localStorage.getItem(LIBRARY_PREFS_KEY);
+      if (!raw) return 'recent';
+      const parsed = JSON.parse(raw) as { sortOrder?: SortType };
+      return parsed.sortOrder ?? 'recent';
+    } catch {
+      return 'recent';
+    }
+  });
   const [installedGames, setInstalledGames] = useState<number[]>([]);
+
+  const persistPrefs = (next: { activeFilter?: FilterType; viewMode?: 'grid' | 'list'; sortOrder?: SortType }) => {
+    const merged = {
+      activeFilter,
+      viewMode,
+      sortOrder,
+      ...next,
+    };
+    localStorage.setItem(LIBRARY_PREFS_KEY, JSON.stringify(merged));
+  };
 
   const ownedGames = (Array.isArray(games) ? games : []).filter(g => library.includes(g.id));
 
@@ -82,7 +121,10 @@ export default function Library({ games, library, onTabChange }: LibraryProps) {
           {categoryFilters.map(({ key, label, icon }) => (
             <button
               key={key}
-              onClick={() => setActiveFilter(key)}
+              onClick={() => {
+                setActiveFilter(key);
+                persistPrefs({ activeFilter: key });
+              }}
               className={`flex items-center gap-2.5 py-2 rounded-lg text-left transition-all text-xs font-medium ${
                 activeFilter === key
                   ? 'bg-neon-cyan/10 text-neon-cyan border-l-2 border-neon-cyan pl-2.5 pr-3'
@@ -103,7 +145,13 @@ export default function Library({ games, library, onTabChange }: LibraryProps) {
           <p className="text-[10px] text-white/40 leading-relaxed mb-3">
             20% off new releases this cycle.
           </p>
-          <button className="w-full py-1.5 bg-neon-magenta/10 border border-neon-magenta/30 text-neon-magenta text-[10px] font-black uppercase tracking-wider rounded-lg hover:bg-neon-magenta/20 transition-all">
+          <button
+            onClick={() => {
+              setActiveFilter('all');
+              onTabChange('store');
+            }}
+            className="w-full py-1.5 bg-neon-magenta/10 border border-neon-magenta/30 text-neon-magenta text-[10px] font-black uppercase tracking-wider rounded-lg hover:bg-neon-magenta/20 transition-all"
+          >
             ACTIVATE
           </button>
         </div>
@@ -124,7 +172,11 @@ export default function Library({ games, library, onTabChange }: LibraryProps) {
           <div className="flex items-center gap-2">
             <select
               value={sortOrder}
-              onChange={e => setSortOrder(e.target.value as SortType)}
+              onChange={e => {
+                const next = e.target.value as SortType;
+                setSortOrder(next);
+                persistPrefs({ sortOrder: next });
+              }}
               aria-label="Sort library games"
               title="Sort library games"
               className="bg-white/5 border border-white/10 rounded-lg text-[10px] font-mono px-2 py-1.5 focus:outline-none focus:border-neon-cyan/50 text-white/60 cursor-pointer"
@@ -135,7 +187,10 @@ export default function Library({ games, library, onTabChange }: LibraryProps) {
             </select>
             <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5">
               <button
-                onClick={() => setViewMode('grid')}
+                onClick={() => {
+                  setViewMode('grid');
+                  persistPrefs({ viewMode: 'grid' });
+                }}
                 className={`p-1.5 rounded transition-all ${
                   viewMode === 'grid' ? 'bg-neon-cyan/10 text-neon-cyan' : 'text-white/30 hover:text-white'
                 }`}
@@ -144,7 +199,10 @@ export default function Library({ games, library, onTabChange }: LibraryProps) {
                 <LayoutGrid className="w-3.5 h-3.5" />
               </button>
               <button
-                onClick={() => setViewMode('list')}
+                onClick={() => {
+                  setViewMode('list');
+                  persistPrefs({ viewMode: 'list' });
+                }}
                 className={`p-1.5 rounded transition-all ${
                   viewMode === 'list' ? 'bg-neon-cyan/10 text-neon-cyan' : 'text-white/30 hover:text-white'
                 }`}
@@ -161,6 +219,7 @@ export default function Library({ games, library, onTabChange }: LibraryProps) {
           <div className="h-64 flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl">
             <Terminal className="w-12 h-12 text-white/20 mb-4" />
             <p className="text-white/40 font-mono text-sm">NO GAMES DETECTED IN GRID_STORAGE</p>
+            <p className="text-[11px] text-white/25 font-mono mt-1">Acquire a title from the store to initialize your library.</p>
             <button
               onClick={() => onTabChange('store')}
               className="mt-4 text-neon-cyan hover:underline font-mono text-xs"
@@ -252,7 +311,13 @@ export default function Library({ games, library, onTabChange }: LibraryProps) {
           <p className="text-[10px] text-white/40 leading-relaxed mb-4">
             Early access, exclusive skins &amp; double rewards on every acquisition.
           </p>
-          <button className="w-full py-2.5 bg-neon-cyan text-black font-black text-[10px] uppercase tracking-tighter rounded-xl hover:shadow-[0_0_20px_rgba(0,243,255,0.4)] transition-all">
+          <button
+            onClick={() => {
+              setActiveFilter('installed');
+              persistPrefs({ activeFilter: 'installed' });
+            }}
+            className="w-full py-2.5 bg-neon-cyan text-black font-black text-[10px] uppercase tracking-tighter rounded-xl hover:shadow-[0_0_20px_rgba(0,243,255,0.4)] transition-all"
+          >
             ACTIVATE_NODE
           </button>
         </div>

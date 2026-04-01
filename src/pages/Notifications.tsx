@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Bell, User, Zap, ShoppingBag, X, CheckCheck } from 'lucide-react';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 interface Notification {
   id: number;
@@ -63,6 +64,8 @@ function TypeIcon({ type }: { type: Notification['type'] }) {
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [undoSnapshot, setUndoSnapshot] = useState<Notification[] | null>(null);
 
   const markAllRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -91,21 +94,43 @@ export default function Notifications() {
             </span>
           )}
         </div>
-        {unreadCount > 0 && (
-          <button
-            onClick={markAllRead}
-            className="flex items-center gap-1.5 text-xs font-mono text-white/40 hover:text-neon-cyan transition-colors"
-          >
-            <CheckCheck className="w-3.5 h-3.5" />
-            MARK ALL READ
-          </button>
-        )}
+        <div className="flex items-center gap-4">
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllRead}
+              className="flex items-center gap-1.5 text-xs font-mono text-white/40 hover:text-neon-cyan transition-colors"
+            >
+              <CheckCheck className="w-3.5 h-3.5" />
+              MARK ALL READ
+            </button>
+          )}
+          {notifications.length > 0 && (
+            <button
+              onClick={() => setConfirmClear(true)}
+              className="text-xs font-mono text-white/30 hover:text-red-300 transition-colors"
+            >
+              CLEAR FEED
+            </button>
+          )}
+        </div>
       </div>
 
       {notifications.length === 0 ? (
         <div className="h-64 flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl">
           <Bell className="w-12 h-12 text-white/20 mb-4" />
           <p className="text-white/40 font-mono">NO SIGNALS DETECTED</p>
+          <p className="text-[11px] text-white/25 font-mono mt-1">You are all caught up. New events will appear in real time.</p>
+          {undoSnapshot && (
+            <button
+              onClick={() => {
+                setNotifications(undoSnapshot);
+                setUndoSnapshot(null);
+              }}
+              className="mt-4 text-xs font-mono text-neon-cyan hover:underline"
+            >
+              UNDO CLEAR FEED
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -154,6 +179,19 @@ export default function Notifications() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmClear}
+        title="CLEAR NOTIFICATION FEED"
+        description="This will remove all notifications from the current feed view."
+        confirmLabel="CLEAR ALL"
+        onCancel={() => setConfirmClear(false)}
+        onConfirm={() => {
+          setUndoSnapshot(notifications);
+          setNotifications([]);
+          setConfirmClear(false);
+        }}
+      />
     </motion.div>
   );
 }

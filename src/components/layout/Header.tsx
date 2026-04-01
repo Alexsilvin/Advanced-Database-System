@@ -60,12 +60,12 @@ export default function Header({ searchTerm, onSearchChange, onTabChange, notifi
             )}
           </button>
           <button
-            onClick={() => onTabChange('profile')}
-            className="flex items-center gap-2 pl-4 border-l border-white/10 hover:opacity-80 transition-opacity"
-            aria-label="Open profile"
-            title="Your Profile"
+            onClick={() => onTabChange('friends')}
+            className="flex items-center gap-2 pl-4 border-l border-white/10"
+            aria-label="Open profile and friends"
+            title="Profile"
           >
-            <div className="w-8 h-8 rounded-full bg-neon-magenta/20 border border-neon-magenta/40 flex items-center justify-center shadow-[0_0_10px_rgba(255,0,255,0.25)] hover:shadow-[0_0_18px_rgba(255,0,255,0.5)] transition-shadow">
+            <div className="w-8 h-8 rounded-full bg-neon-magenta/20 border border-neon-magenta/40 flex items-center justify-center">
               <User className="w-4 h-4 text-neon-magenta" />
             </div>
             <span className="text-sm font-mono hidden sm:block">SYLVESTRE_01</span>

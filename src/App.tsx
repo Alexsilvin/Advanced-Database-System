@@ -14,10 +14,16 @@ import Friends from './pages/Friends';
 import Bucket from './pages/Bucket';
 import Notifications from './pages/Notifications';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
+import Welcome from './pages/Welcome';
+import Dashboard from './pages/Dashboard';
 import GameDetail from './pages/GameDetail';
+
+type AppView = 'welcome' | 'login' | 'signup' | 'app';
 
 const LS_KEYS = {
   isLoggedIn: 'neon-grid:is-logged-in',
+  username: 'neon-grid:username',
   activeTab: 'neon-grid:active-tab',
   library: 'neon-grid:library',
   bucket: 'neon-grid:bucket',
@@ -41,7 +47,10 @@ function readStorage<T>(key: string, fallback: T): T {
 }
 
 export default function App() {
+  const [currentView, setCurrentView] = useState<AppView>(() => readStorage<boolean>(LS_KEYS.isLoggedIn, false) ? 'app' : 'welcome');
+  const [username, setUsername] = useState<string>(() => readStorage<string>(LS_KEYS.username, ''));
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => readStorage<boolean>(LS_KEYS.isLoggedIn, false));
+  const [showDashboardOnce, setShowDashboardOnce] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     const stored = readStorage<TabType>(LS_KEYS.activeTab, 'store');
     return stored === 'game-detail' ? 'store' : stored;
@@ -63,7 +72,8 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem(LS_KEYS.isLoggedIn, JSON.stringify(isLoggedIn));
-  }, [isLoggedIn]);
+    localStorage.setItem(LS_KEYS.username, JSON.stringify(username));
+  }, [isLoggedIn, username]);
 
   useEffect(() => {
     localStorage.setItem(LS_KEYS.activeTab, JSON.stringify(activeTab));
@@ -158,9 +168,12 @@ export default function App() {
 
   const handleLogout = () => {
     setIsLoggedIn(false);
+    setUsername('');
+    setCurrentView('welcome');
     setActiveTab('store');
     setSelectedGame(null);
     setSearchTerm('');
+    setShowDashboardOnce(false);
     notify('Disconnected from NEON-GRID.', 'info');
   };
 
@@ -226,13 +239,15 @@ export default function App() {
     ? games.filter(g => g.title.toLowerCase().includes(searchTerm.toLowerCase()))
     : [];
 
-  if (!isLoggedIn) {
+  // Welcome Page
+  if (currentView === 'welcome') {
     return (
       <>
-        <Login onLogin={() => {
-          setIsLoggedIn(true);
-          notify('Connected to NEON-GRID.', 'success');
-        }} />
+        <Welcome
+          onGetStarted={() => setCurrentView('signup')}
+          onLogin={() => setCurrentView('login')}
+          games={games}
+        />
         {toast && (
           <Toast
             message={toast.message}
@@ -246,6 +261,61 @@ export default function App() {
     );
   }
 
+  // Signup Page
+  if (currentView === 'signup') {
+    return (
+      <>
+        <Signup
+          onSignup={(newUsername) => {
+            setUsername(newUsername);
+            setIsLoggedIn(true);
+            setCurrentView('app');
+            setShowDashboardOnce(true);
+            notify(`Welcome to NEON-GRID, ${newUsername}!`, 'success');
+            loadGames();
+          }}
+          onBackToWelcome={() => setCurrentView('welcome')}
+        />
+        {toast && (
+          <Toast
+            message={toast.message}
+            variant={toast.variant}
+            actionLabel={toast.actionLabel}
+            onAction={toast.onAction}
+            onClose={() => setToast(null)}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Login Page
+  if (currentView === 'login') {
+    return (
+      <>
+        <Login
+          onLogin={() => {
+            setUsername('player_one');
+            setIsLoggedIn(true);
+            setCurrentView('app');
+            notify('Connected to NEON-GRID.', 'success');
+            loadGames();
+          }}
+        />
+        {toast && (
+          <Toast
+            message={toast.message}
+            variant={toast.variant}
+            actionLabel={toast.actionLabel}
+            onAction={toast.onAction}
+            onClose={() => setToast(null)}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Main App View
   if (loading) {
     return (
       <>
@@ -289,7 +359,21 @@ export default function App() {
 
         <div className="flex-1 py-8 px-6 min-w-0">
           <AnimatePresence mode="wait">
-            {activeTab === 'store' && (
+            {showDashboardOnce && activeTab === 'store' && (
+              <Dashboard
+                username={username}
+                libraryCount={library.length}
+                bucketCount={bucket.length}
+                games={games}
+                library={library}
+                onTabChange={(tab) => {
+                  setShowDashboardOnce(false);
+                  setActiveTab(tab);
+                }}
+              />
+            )}
+
+            {!showDashboardOnce && activeTab === 'store' && (
               <Store
                 games={games}
                 library={library}

@@ -229,7 +229,6 @@ erDiagram
       uuid game_id FK
       integer quantity
       timestamptz added_at
-      PK "(user_id, game_id)"
    }
 
    ORDERS {
@@ -250,12 +249,11 @@ erDiagram
       numeric unit_price
       integer quantity
       numeric line_total
-      PK "(order_id, game_id)"
    }
 
    PAYMENTS {
       uuid id PK
-      uuid order_id FK UK
+      uuid order_id FK
       varchar provider
       varchar status
       varchar external_ref
@@ -268,7 +266,6 @@ erDiagram
       uuid game_id FK
       uuid order_id FK
       timestamptz acquired_at
-      PK "(user_id, game_id)"
    }
 
    FRIENDSHIPS {
@@ -277,7 +274,6 @@ erDiagram
       varchar status
       timestamptz created_at
       timestamptz updated_at
-      PK "(requester_id, addressee_id)"
    }
 
    NOTIFICATIONS {
@@ -297,7 +293,6 @@ erDiagram
       smallint rating
       text comment
       timestamptz created_at
-      PK "(user_id, game_id)"
    }
 
    USER_SESSIONS {
@@ -308,6 +303,8 @@ erDiagram
       timestamptz created_at
    }
 ```
+
+Composite keys and uniqueness constraints are enforced in the SQL DDL section below (Mermaid ER syntax is limited for multi-column key declarations).
 
 ## 1. Project Vision
 

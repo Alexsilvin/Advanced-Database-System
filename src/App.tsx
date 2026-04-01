@@ -13,6 +13,7 @@ import Bucket from './pages/Bucket';
 import Notifications from './pages/Notifications';
 import Login from './pages/Login';
 import GameDetail from './pages/GameDetail';
+import Profile from './pages/Profile';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -147,6 +148,14 @@ export default function App() {
 
             {activeTab === 'notifications' && (
               <Notifications />
+            )}
+
+            {activeTab === 'profile' && (
+              <Profile
+                libraryCount={library.length}
+                friendsCount={4}
+                onLogout={() => setIsLoggedIn(false)}
+              />
             )}
           </AnimatePresence>
         </div>

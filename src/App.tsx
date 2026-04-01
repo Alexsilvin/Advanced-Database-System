@@ -18,6 +18,7 @@ import Signup from './pages/Signup';
 import Welcome from './pages/Welcome';
 import Dashboard from './pages/Dashboard';
 import GameDetail from './pages/GameDetail';
+import Profile from './pages/Profile';
 
 type AppView = 'welcome' | 'login' | 'signup' | 'app';
 
@@ -421,6 +422,14 @@ export default function App() {
 
             {activeTab === 'notifications' && (
               <Notifications />
+            )}
+
+            {activeTab === 'profile' && (
+              <Profile
+                libraryCount={library.length}
+                friendsCount={4}
+                onLogout={() => setIsLoggedIn(false)}
+              />
             )}
           </AnimatePresence>
         </div>

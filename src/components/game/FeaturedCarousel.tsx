@@ -1,4 +1,4 @@
-mport React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Game } from '../../types';

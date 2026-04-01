@@ -68,8 +68,14 @@ export default function App() {
   const isGlitching = useGlitchEffect();
 
   useEffect(() => {
-    loadGames();
-  }, []);
+    // Only load games if user is already logged in (in app view)
+    if (currentView === 'app') {
+      loadGames();
+    } else {
+      // Still need to set loading to false for welcome/signup/login pages
+      setLoading(false);
+    }
+  }, [currentView]);
 
   useEffect(() => {
     localStorage.setItem(LS_KEYS.isLoggedIn, JSON.stringify(isLoggedIn));

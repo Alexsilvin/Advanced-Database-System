@@ -66,6 +66,28 @@ export interface RegisterRomResponse {
   };
 }
 
+export interface AdminOverviewResponse {
+  summary: {
+    totalUsers: number;
+    adminUsers: number;
+    playerUsers: number;
+    totalGames: number;
+  };
+  recentUsers: Array<{
+    id: string;
+    username: string;
+    role: UserRole;
+    email?: string | null;
+  }>;
+  recentGames: Array<{
+    id: number;
+    title: string;
+    category: string;
+    price: number;
+    image?: string;
+  }>;
+}
+
 export interface PosterEnrichmentResult {
   attempted: number;
   updated: Array<{ id: string; title: string; source: string; confidence: number }>;

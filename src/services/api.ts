@@ -1,4 +1,4 @@
-import { AuthSessionResponse, DownloadUrlResponse, Game, PosterEnrichmentResult, RegisterRomResponse, RomUploadUrlResponse, UserAccount, UserRole } from '../types';
+import { AdminOverviewResponse, AuthSessionResponse, DownloadUrlResponse, Game, PosterEnrichmentResult, RegisterRomResponse, RomUploadUrlResponse, UserAccount, UserRole } from '../types';
 
 function normalizeGame(raw: unknown): Game | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -55,6 +55,17 @@ export const fetchCurrentUser = async (): Promise<AuthSessionResponse | null> =>
   }
 
   return data as AuthSessionResponse;
+};
+
+export const fetchAdminOverview = async (): Promise<AdminOverviewResponse> => {
+  const res = await fetch('/api/admin/overview', { credentials: 'include' });
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || 'FAILED_TO_FETCH_ADMIN_OVERVIEW');
+  }
+
+  return data as AdminOverviewResponse;
 };
 
 export const signupUser = async (payload: {

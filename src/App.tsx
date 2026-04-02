@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Game, TabType } from './types';
+import { AuthSessionResponse, Game, TabType } from './types';
 import { fetchCurrentUser, fetchGames, loginUser, logoutUser, signupUser } from './services/api';
 import { useGlitchEffect } from './hooks/useGlitchEffect';
 import Header from './components/layout/Header';
@@ -20,6 +20,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import GameDetail from './pages/GameDetail';
 import Profile from './pages/Profile';
 import AdminUpload from './pages/AdminUpload';
+import { UploadCloud } from 'lucide-react';
 
 type AppView = 'welcome' | 'login' | 'signup' | 'app';
 
@@ -68,6 +69,24 @@ export default function App() {
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const isGlitching = useGlitchEffect();
 
+  const applySessionUser = (sessionUser: AuthSessionResponse | null) => {
+    if (sessionUser) {
+      setUsername(sessionUser.username);
+      setUserRole(sessionUser.role);
+      setIsLoggedIn(true);
+      setCurrentView('app');
+      setActiveTab('store');
+      setShowDashboardOnce(sessionUser.role === 'admin');
+      return;
+    }
+
+    setUsername('');
+    setUserRole('player');
+    setIsLoggedIn(false);
+    setCurrentView('welcome');
+    setShowDashboardOnce(false);
+  };
+
   useEffect(() => {
     loadGames();
   }, []);
@@ -80,25 +99,10 @@ export default function App() {
         const sessionUser = await fetchCurrentUser();
         if (!isMounted) return;
 
-        if (sessionUser) {
-          setUsername(sessionUser.username);
-          setUserRole(sessionUser.role);
-          setIsLoggedIn(true);
-          setCurrentView('app');
-          setActiveTab('store');
-          setShowDashboardOnce(sessionUser.role === 'admin');
-        } else {
-          setUsername('');
-          setUserRole('player');
-          setIsLoggedIn(false);
-          setCurrentView('welcome');
-        }
+        applySessionUser(sessionUser);
       } catch {
         if (!isMounted) return;
-        setUsername('');
-        setUserRole('player');
-        setIsLoggedIn(false);
-        setCurrentView('welcome');
+        applySessionUser(null);
       } finally {
         if (isMounted) {
           setIsSessionChecking(false);
@@ -110,6 +114,27 @@ export default function App() {
 
     return () => {
       isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const resyncSession = () => {
+      void (async () => {
+        try {
+          const sessionUser = await fetchCurrentUser();
+          applySessionUser(sessionUser);
+        } catch {
+          applySessionUser(null);
+        }
+      })();
+    };
+
+    window.addEventListener('focus', resyncSession);
+    document.addEventListener('visibilitychange', resyncSession);
+
+    return () => {
+      window.removeEventListener('focus', resyncSession);
+      document.removeEventListener('visibilitychange', resyncSession);
     };
   }, []);
 
@@ -386,6 +411,24 @@ export default function App() {
         bucketCount={bucket.length}
       />
 
+      {userRole === 'admin' && currentView === 'app' && (
+        <div className="max-w-7xl mx-auto w-full px-4 pt-4">
+          <div className="rounded-2xl border border-neon-magenta/25 bg-linear-to-r from-neon-magenta/10 to-neon-cyan/10 px-5 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-mono tracking-[0.35em] text-neon-magenta uppercase">Admin session live</p>
+              <p className="text-sm text-white/70 font-mono mt-1">Database role: <span className="text-neon-cyan font-black uppercase">ADMIN</span> · upload and catalog tools are unlocked.</p>
+            </div>
+            <button
+              onClick={() => setActiveTab('upload')}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest"
+            >
+              <UploadCloud className="w-4 h-4" />
+              Upload ROM
+            </button>
+          </div>
+        </div>
+      )}
+
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8 flex gap-8">
         <Sidebar
           activeTab={activeTab}
@@ -399,7 +442,6 @@ export default function App() {
           {showDashboardOnce && activeTab === 'store' && userRole === 'admin' && (
               <AdminDashboard
                 username={username}
-                gamesCount={games.length}
                 onTabChange={(tab) => {
                   setShowDashboardOnce(false);
                   setActiveTab(tab);

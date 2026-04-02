@@ -338,6 +338,57 @@ async function startServer() {
     }
   });
 
+  app.get('/api/admin/overview', async (req, res) => {
+    const p = getPool();
+    if (!p) return res.status(500).json({ error: 'Database not configured' });
+
+    try {
+      const sessionUser = await getSessionUser(req);
+      if (!sessionUser || sessionUser.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+
+      const [userCounts, gameCounts, recentUsers, recentGames] = await Promise.all([
+        p.query(
+          `SELECT
+             COUNT(*)::int AS total_users,
+             COUNT(*) FILTER (WHERE role = 'admin')::int AS admin_users,
+             COUNT(*) FILTER (WHERE role = 'player')::int AS player_users
+           FROM users`
+        ),
+        p.query(
+          `SELECT COUNT(*)::int AS total_games FROM games`
+        ),
+        p.query(
+          `SELECT id, username, role, email
+           FROM users
+           ORDER BY username ASC
+           LIMIT 5`
+        ),
+        p.query(
+          `SELECT id, title, category, price, image
+           FROM games
+           ORDER BY id DESC
+           LIMIT 5`
+        ),
+      ]);
+
+      res.json({
+        summary: {
+          totalUsers: Number(userCounts.rows[0]?.total_users ?? 0),
+          adminUsers: Number(userCounts.rows[0]?.admin_users ?? 0),
+          playerUsers: Number(userCounts.rows[0]?.player_users ?? 0),
+          totalGames: Number(gameCounts.rows[0]?.total_games ?? 0),
+        },
+        recentUsers: recentUsers.rows,
+        recentGames: recentGames.rows,
+      });
+    } catch (err) {
+      console.error('Failed to fetch admin overview:', err);
+      res.status(500).json({ error: 'Failed to fetch admin overview' });
+    }
+  });
+
   app.post('/api/auth/signup', async (req, res) => {
     const p = getPool();
     if (!p) return res.status(500).json({ error: 'Database not configured' });

@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { ShieldCheck, UploadCloud, Users, Gamepad2, DatabaseZap, ArrowRight, Lock } from 'lucide-react';
+import { ShieldCheck, UploadCloud, Users, Gamepad2, DatabaseZap, ArrowRight, Lock, RefreshCw, UserPlus, GamepadIcon, Loader2 } from 'lucide-react';
+import { fetchAdminOverview } from '../services/api';
 import { TabType } from '../types';
 
 interface AdminDashboardProps {
   username: string;
-  gamesCount: number;
   onTabChange: (tab: TabType) => void;
   onOpenUpload: () => void;
 }
@@ -17,7 +17,29 @@ const adminSignals = [
   { label: 'SESSION', value: 'SECURE', icon: Lock, color: 'text-neon-yellow' },
 ];
 
-export default function AdminDashboard({ username, gamesCount, onTabChange, onOpenUpload }: AdminDashboardProps) {
+export default function AdminDashboard({ username, onTabChange, onOpenUpload }: AdminDashboardProps) {
+  const [overview, setOverview] = useState<null | Awaited<ReturnType<typeof fetchAdminOverview>>>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const loadOverview = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const data = await fetchAdminOverview();
+      setOverview(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load admin overview');
+      setOverview(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadOverview();
+  }, []);
+
   return (
     <motion.div
       key="admin-dashboard"
@@ -43,6 +65,13 @@ export default function AdminDashboard({ username, gamesCount, onTabChange, onOp
           </div>
 
           <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => void loadOverview()}
+              className="px-5 py-3 rounded-xl border border-white/10 text-white/70 hover:text-white hover:border-neon-cyan/30 transition-colors flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh Data
+            </button>
             <button
               onClick={onOpenUpload}
               className="px-5 py-3 rounded-xl bg-linear-to-r from-neon-cyan to-neon-magenta text-black font-black italic tracking-widest flex items-center gap-2"
@@ -75,6 +104,44 @@ export default function AdminDashboard({ username, gamesCount, onTabChange, onOp
             </div>
           );
         })}
+      </div>
+
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <p className="text-xs font-mono tracking-[0.35em] text-neon-cyan uppercase">Live database snapshot</p>
+            <h2 className="text-2xl font-black italic tracking-tighter mt-2">Real data from Neon</h2>
+          </div>
+          <button
+            onClick={onOpenUpload}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest"
+          >
+            <UploadCloud className="w-4 h-4" />
+            Open upload
+          </button>
+        </div>
+
+        {loading && (
+          <div className="flex items-center gap-3 text-sm text-white/60 font-mono">
+            <Loader2 className="w-4 h-4 animate-spin text-neon-cyan" />
+            Loading database metrics...
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200 font-mono">
+            {error}
+          </div>
+        )}
+
+        {overview && (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <OverviewCard icon={GamepadIcon} label="TOTAL GAMES" value={overview.summary.totalGames} accent="text-neon-cyan" />
+            <OverviewCard icon={Users} label="TOTAL USERS" value={overview.summary.totalUsers} accent="text-neon-magenta" />
+            <OverviewCard icon={ShieldCheck} label="ADMINS" value={overview.summary.adminUsers} accent="text-green-400" />
+            <OverviewCard icon={UserPlus} label="PLAYERS" value={overview.summary.playerUsers} accent="text-neon-yellow" />
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
@@ -128,18 +195,52 @@ export default function AdminDashboard({ username, gamesCount, onTabChange, onOp
           >
             Open profile <ArrowRight className="w-3 h-3" />
           </button>
+
+          {overview && overview.recentUsers.length > 0 && (
+            <div className="pt-4 border-t border-white/10 space-y-3">
+              <p className="text-[10px] font-mono tracking-[0.35em] text-white/40 uppercase">Recent users</p>
+              <div className="space-y-2">
+                {overview.recentUsers.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                    <div>
+                      <p className="text-sm font-black italic tracking-tight text-white">{user.username}</p>
+                      <p className="text-[10px] font-mono text-white/45 uppercase">{user.email ?? 'No email on file'}</p>
+                    </div>
+                    <span className={`text-[10px] font-black tracking-[0.25em] uppercase ${user.role === 'admin' ? 'text-neon-magenta' : 'text-neon-cyan'}`}>
+                      {user.role}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="rounded-3xl border border-white/10 bg-white/5 p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <p className="text-xs font-mono tracking-[0.35em] text-white/40 uppercase">Catalog count</p>
-          <p className="text-3xl font-black italic tracking-tighter text-neon-cyan mt-1">{gamesCount} games</p>
+          <p className="text-3xl font-black italic tracking-tighter text-neon-cyan mt-1">
+            {overview?.summary.totalGames ?? 0} games
+          </p>
         </div>
         <div className="text-sm text-white/55 font-mono max-w-xl">
           You are landing on the admin control panel first. Players are routed to the standard player dashboard and store flow.
         </div>
       </div>
     </motion.div>
+  );
+}
+
+function OverviewCard({ icon: Icon, label, value, accent }: { icon: React.ComponentType<{ className?: string }>; label: string; value: number; accent: string }) {
+  return (
+    <div className="p-5 rounded-2xl border border-white/10 bg-black/30">
+      <div className="flex items-center justify-between mb-4">
+        <Icon className={`w-5 h-5 ${accent}`} />
+        <span className="text-[10px] font-mono text-white/35 uppercase tracking-[0.3em]">DB</span>
+      </div>
+      <p className="text-xs text-white/40 font-mono uppercase tracking-widest mb-2">{label}</p>
+      <p className={`text-3xl font-black italic ${accent}`}>{value}</p>
+    </div>
   );
 }

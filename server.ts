@@ -3,8 +3,77 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { Pool } from "pg";
 import dotenv from "dotenv";
+import net from "net";
+import crypto from "crypto";
 
 dotenv.config();
+
+const SESSION_COOKIE_NAME = 'neon-grid-session';
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+
+type UserRole = 'admin' | 'player';
+
+type UserRow = {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  role: UserRole;
+  email: string | null;
+};
+
+function normalizeRole(value: unknown): UserRole {
+  return value === 'admin' ? 'admin' : 'player';
+}
+
+function hashPassword(password: string, salt = crypto.randomBytes(16).toString('hex')) {
+  const hash = crypto.pbkdf2Sync(password, salt, 120_000, 64, 'sha512').toString('hex');
+  return { salt, hash };
+}
+
+function verifyPassword(password: string, salt: string, expectedHash: string) {
+  const actualHash = crypto.pbkdf2Sync(password, salt, 120_000, 64, 'sha512').toString('hex');
+  return crypto.timingSafeEqual(Buffer.from(actualHash, 'hex'), Buffer.from(expectedHash, 'hex'));
+}
+
+function hashToken(token: string) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function createSessionToken() {
+  return `${crypto.randomUUID()}.${crypto.randomBytes(24).toString('hex')}`;
+}
+
+function cookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: Math.floor(SESSION_TTL_MS / 1000),
+  };
+}
+
+function getAdminBootstrapCredentials() {
+  return {
+    username: process.env.ADMIN_BOOTSTRAP_USERNAME || 'admin',
+    password: process.env.ADMIN_BOOTSTRAP_PASSWORD || 'Admin1234!',
+  };
+}
+
+function parseCookies(cookieHeader: string | undefined) {
+  const cookies: Record<string, string> = {};
+  if (!cookieHeader) return cookies;
+
+  for (const part of cookieHeader.split(';')) {
+    const index = part.indexOf('=');
+    if (index === -1) continue;
+    const key = part.slice(0, index).trim();
+    const value = part.slice(index + 1).trim();
+    cookies[key] = decodeURIComponent(value);
+  }
+
+  return cookies;
+}
 
 // Lazy initialization of PostgreSQL pool
 let pool: Pool | null = null;
@@ -29,10 +98,21 @@ async function initDb() {
 
   try {
     await p.query(`
+      CREATE EXTENSION IF NOT EXISTS pgcrypto;
       CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         username TEXT UNIQUE,
-        avatar TEXT
+        avatar_url TEXT,
+        email TEXT UNIQUE,
+        password_hash TEXT,
+        password_salt TEXT,
+        role TEXT NOT NULL DEFAULT 'player'
+      );
+      CREATE TABLE IF NOT EXISTS auth_sessions (
+        token_hash TEXT PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
       CREATE TABLE IF NOT EXISTS games (
         id SERIAL PRIMARY KEY,
@@ -43,15 +123,32 @@ async function initDb() {
         category TEXT
       );
       CREATE TABLE IF NOT EXISTS library (
-        user_id INTEGER REFERENCES users(id),
-        game_id INTEGER REFERENCES games(id)
+        user_id UUID REFERENCES users(id),
+        game_id UUID REFERENCES games(id)
       );
       CREATE TABLE IF NOT EXISTS friends (
-        user_id INTEGER REFERENCES users(id),
-        friend_id INTEGER REFERENCES users(id),
+        user_id UUID REFERENCES users(id),
+        friend_id UUID REFERENCES users(id),
         status TEXT -- 'pending', 'accepted'
       );
     `);
+
+    await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'player';`);
+    await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;`);
+    await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;`);
+    await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_salt TEXT;`);
+
+    await p.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users (email) WHERE email IS NOT NULL;`);
+
+    const admin = getAdminBootstrapCredentials();
+    const adminCredentials = hashPassword(admin.password);
+    await p.query(
+      `INSERT INTO users (username, avatar_url, email, password_hash, password_salt, role)
+       VALUES ($1, NULL, NULL, $2, $3, 'admin')
+       ON CONFLICT (username)
+       DO UPDATE SET role = 'admin', password_hash = EXCLUDED.password_hash, password_salt = EXCLUDED.password_salt`,
+      [admin.username, adminCredentials.hash, adminCredentials.salt]
+    );
 
     const res = await p.query("SELECT COUNT(*) FROM games");
     if (parseInt(res.rows[0].count) === 0) {
@@ -75,9 +172,79 @@ async function initDb() {
   }
 }
 
+async function getSessionUser(req: express.Request) {
+  const p = getPool();
+  if (!p) return null;
+
+  const cookies = parseCookies(req.headers.cookie);
+  const token = cookies[SESSION_COOKIE_NAME];
+  if (!token) return null;
+
+  const tokenHash = hashToken(token);
+  const result = await p.query<UserRow>(
+    `SELECT u.id, u.username, u.avatar_url, u.role, u.email
+     FROM auth_sessions s
+     INNER JOIN users u ON u.id = s.user_id
+     WHERE s.token_hash = $1 AND s.expires_at > NOW()
+     LIMIT 1`,
+    [tokenHash]
+  );
+
+  return result.rows[0] ?? null;
+}
+
+async function issueSession(res: express.Response, userId: string) {
+  const p = getPool();
+  if (!p) throw new Error('Database not configured');
+
+  const token = createSessionToken();
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+
+  await p.query(
+    `INSERT INTO auth_sessions (token_hash, user_id, expires_at)
+     VALUES ($1, $2, $3)`,
+    [tokenHash, userId, expiresAt.toISOString()]
+  );
+
+  res.cookie(SESSION_COOKIE_NAME, token, cookieOptions());
+}
+
+async function findAvailablePort(preferredPort: number, host: string) {
+  const tryPort = (port: number) => new Promise<number>((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on('error', reject);
+    server.listen({ port, host }, () => {
+      const address = server.address();
+      server.close(() => {
+        if (address && typeof address === 'object') {
+          resolve(address.port);
+        } else {
+          resolve(port);
+        }
+      });
+    });
+  });
+
+  try {
+    return await tryPort(preferredPort);
+  } catch {
+    for (let port = preferredPort + 1; port <= preferredPort + 50; port += 1) {
+      try {
+        return await tryPort(port);
+      } catch {
+        continue;
+      }
+    }
+
+    throw new Error(`Unable to find an open port near ${preferredPort}`);
+  }
+}
+
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = await findAvailablePort(3000, "0.0.0.0");
 
   app.use(express.json());
 
@@ -133,17 +300,142 @@ async function startServer() {
     const p = getPool();
     if (!p) return res.status(500).json({ error: "Database not configured" });
     try {
-      const result = await p.query("SELECT * FROM users");
+      const result = await p.query("SELECT id, username, avatar_url, email, role FROM users");
       res.json(result.rows);
     } catch (err) {
       res.status(500).json({ error: "Failed to fetch users" });
     }
   });
 
+  app.post("/api/users", async (req, res) => {
+    const p = getPool();
+    if (!p) return res.status(500).json({ error: "Database not configured" });
+
+    try {
+      const { username, avatarUrl, role } = req.body ?? {};
+      if (!username || typeof username !== 'string') {
+        return res.status(400).json({ error: "username is required" });
+      }
+
+      const requestedRole = role === 'admin' ? 'admin' : 'player';
+      const adminKey = req.headers['x-admin-key'];
+      const configuredKey = process.env.ROM_ADMIN_KEY;
+      const finalRole = requestedRole === 'admin' && configuredKey && adminKey !== configuredKey ? 'player' : requestedRole;
+
+      const result = await p.query(
+        `INSERT INTO users (username, avatar_url, role)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (username)
+         DO UPDATE SET avatar_url = COALESCE(EXCLUDED.avatar_url, users.avatar_url), role = CASE WHEN users.role = 'admin' THEN 'admin' ELSE EXCLUDED.role END
+         RETURNING *`,
+        [username.trim(), avatarUrl || null, finalRole]
+      );
+
+      res.status(201).json(result.rows[0]);
+    } catch (err) {
+      console.error("Failed to create user:", err);
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  });
+
+  app.post('/api/auth/signup', async (req, res) => {
+    const p = getPool();
+    if (!p) return res.status(500).json({ error: 'Database not configured' });
+
+    try {
+      const { username, email, password } = req.body ?? {};
+      if (!username || !password || !email) {
+        return res.status(400).json({ error: 'username, email, and password are required' });
+      }
+
+      if (typeof username !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
+        return res.status(400).json({ error: 'Invalid signup payload' });
+      }
+
+      const passwordData = hashPassword(password);
+      const result = await p.query<UserRow>(
+        `INSERT INTO users (username, email, password_hash, password_salt, role)
+         VALUES ($1, $2, $3, $4, 'player')
+         RETURNING id, username, avatar_url, role, email`,
+        [username.trim(), email.trim().toLowerCase(), passwordData.hash, passwordData.salt]
+      );
+
+      await issueSession(res, result.rows[0].id);
+      res.status(201).json(result.rows[0]);
+    } catch (err) {
+      console.error('Failed to sign up user:', err);
+      res.status(500).json({ error: 'Failed to sign up user' });
+    }
+  });
+
+  app.post('/api/auth/login', async (req, res) => {
+    const p = getPool();
+    if (!p) return res.status(500).json({ error: 'Database not configured' });
+
+    try {
+      const { username, password } = req.body ?? {};
+      if (!username || !password || typeof username !== 'string' || typeof password !== 'string') {
+        return res.status(400).json({ error: 'username and password are required' });
+      }
+
+      const result = await p.query<UserRow & { password_hash: string | null; password_salt: string | null }>(
+        `SELECT id, username, avatar_url, role, email, password_hash, password_salt
+         FROM users
+         WHERE LOWER(username) = LOWER($1)
+         LIMIT 1`,
+        [username.trim()]
+      );
+
+      const user = result.rows[0];
+      if (!user || !user.password_hash || !user.password_salt || !verifyPassword(password, user.password_salt, user.password_hash)) {
+        return res.status(401).json({ error: 'Invalid username or password' });
+      }
+
+      await issueSession(res, user.id);
+      res.json({ id: user.id, username: user.username, avatar_url: user.avatar_url, role: normalizeRole(user.role), email: user.email });
+    } catch (err) {
+      console.error('Failed to log in user:', err);
+      res.status(500).json({ error: 'Failed to log in user' });
+    }
+  });
+
+  app.get('/api/auth/me', async (req, res) => {
+    try {
+      const user = await getSessionUser(req);
+      if (!user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      res.json(user);
+    } catch (err) {
+      console.error('Failed to read session:', err);
+      res.status(500).json({ error: 'Failed to read session' });
+    }
+  });
+
+  app.post('/api/auth/logout', async (req, res) => {
+    const p = getPool();
+    if (!p) return res.status(200).json({ ok: true });
+
+    try {
+      const cookies = parseCookies(req.headers.cookie);
+      const token = cookies[SESSION_COOKIE_NAME];
+      if (token) {
+        await p.query(`DELETE FROM auth_sessions WHERE token_hash = $1`, [hashToken(token)]);
+      }
+
+      res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('Failed to log out:', err);
+      res.status(500).json({ error: 'Failed to log out' });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false },
       appType: "spa",
     });
     app.use(vite.middlewares);

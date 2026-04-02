@@ -1,5 +1,6 @@
-export const formatPrice = (price: number): string => {
-  return `$${price.toFixed(2)}`;
+export const formatPrice = (price: number | string): string => {
+  const numericPrice = Number(price);
+  return `$${Number.isFinite(numericPrice) ? numericPrice.toFixed(2) : '0.00'}`;
 };
 
 export const formatFileSize = (bytes: number): string => {

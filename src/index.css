@@ -21,6 +21,31 @@
 }
 
 @layer components {
+  .page-enter {
+    animation: pageEnter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .reveal-up {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+    animation: revealUp 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .reveal-delay-1 { animation-delay: 80ms; }
+  .reveal-delay-2 { animation-delay: 150ms; }
+  .reveal-delay-3 { animation-delay: 220ms; }
+  .reveal-delay-4 { animation-delay: 290ms; }
+
+  .card-breathe {
+    animation: cardBreathe 6s ease-in-out infinite;
+    transform-origin: center;
+  }
+
+  .profile-grid-overlay {
+    background-image: linear-gradient(rgba(0,243,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(0,243,255,0.3) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
   .glitch-text {
     position: relative;
     text-shadow: 0.05em 0 0 rgba(255, 0, 0, 0.75),
@@ -91,6 +116,22 @@
   100% { text-shadow: -0.025em 0 0 rgba(255, 0, 0, 0.75), -0.025em -0.025em 0 rgba(0, 255, 0, 0.75), -0.025em -0.05em 0 rgba(0, 0, 255, 0.75); }
 }
 
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes cardBreathe {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-3px); }
+  100% { transform: translateY(0px); }
+}
+
 @keyframes scanline {
   0% { bottom: 100%; }
   80% { bottom: 100%; }
@@ -136,4 +177,18 @@
 @keyframes loginButtonSweep {
   0% { transform: translateX(-120%); }
   100% { transform: translateX(120%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter,
+  .reveal-up,
+  .card-breathe,
+  .glitch-text,
+  .scanline,
+  .login-glitch,
+  .login-button-grid::before {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
 }

@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Cpu, Terminal, Zap, Shield } from 'lucide-react';
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin: (username: string, password: string) => Promise<void>;
 }
 
 export default function Login({ onLogin }: LoginProps) {
@@ -11,6 +11,7 @@ export default function Login({ onLogin }: LoginProps) {
   const [password, setPassword] = useState('');
   const [isGlitching, setIsGlitching] = useState(false);
   const [buttonState, setButtonState] = useState<'idle' | 'hover' | 'arming'>('idle');
+  const [authError, setAuthError] = useState('');
 
   const triggerGlitch = () => {
     setIsGlitching(false);
@@ -21,7 +22,7 @@ export default function Login({ onLogin }: LoginProps) {
     setTimeout(() => setIsGlitching(false), 520);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (buttonState === 'arming') {
@@ -30,7 +31,14 @@ export default function Login({ onLogin }: LoginProps) {
 
     setButtonState('arming');
     triggerGlitch();
-    window.setTimeout(() => onLogin(), 380);
+
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 380));
+      await onLogin(username, password);
+    } catch (error) {
+      setButtonState('idle');
+      setAuthError(error instanceof Error ? error.message : 'Login failed');
+    }
   };
 
   return (
@@ -135,9 +143,13 @@ export default function Login({ onLogin }: LoginProps) {
           <div className="flex items-center gap-2 justify-center pt-1">
             <Shield className="w-3 h-3 text-white/20" />
             <p className="text-[10px] font-mono text-white/20 tracking-wide">
-              NO AUTH REQUIRED — CLICK TO PROCEED
+              AUTHENTICATION REQUIRED — DATABASE SESSION ENABLED
             </p>
           </div>
+
+          {authError && (
+            <p className="text-xs font-mono text-red-400 text-center">{authError}</p>
+          )}
         </form>
 
         <div className="mt-6 flex items-center gap-3 justify-center">

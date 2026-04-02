@@ -28,6 +28,16 @@ const mockGames = [
   { id: 108, title: "GRID WALKER", price: 44.99, description: "Advanced physics-based parkour in a neo-tokyo megastructure.", image: "/src/assets/images/download (4).jfif", category: "Action" },
 ];
 
+function normalizeGameRow(row: Record<string, unknown>) {
+  const image = (row.image as string | undefined) || (row.image_url as string | undefined) || "";
+  return {
+    ...row,
+    image,
+    image_url: image,
+    is_downloadable: Boolean(row.is_downloadable),
+  };
+}
+
 async function initDb(p: pg.Pool) {
   try {
     await p.query(`
@@ -76,7 +86,7 @@ export default async (req: Request, context: Context) => {
     if (result.rows.length === 0) {
       return Response.json(mockGames);
     }
-    return Response.json(result.rows);
+    return Response.json(result.rows.map((row) => normalizeGameRow(row)));
   } catch (err) {
     console.error("Database query failed:", err);
     console.warn("Falling back to mock data.");

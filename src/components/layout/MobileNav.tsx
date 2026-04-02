@@ -1,14 +1,16 @@
 import React from 'react';
-import { Gamepad2, Users, ShoppingBag, ShoppingCart, Bell } from 'lucide-react';
+import { Gamepad2, Users, ShoppingBag, ShoppingCart, Bell, UploadCloud } from 'lucide-react';
 import { TabType } from '../../types';
 
 interface MobileNavProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
   bucketCount: number;
+  canUpload: boolean;
+  onOpenUpload: () => void;
 }
 
-export default function MobileNav({ activeTab, onTabChange, bucketCount }: MobileNavProps) {
+export default function MobileNav({ activeTab, onTabChange, bucketCount, canUpload, onOpenUpload }: MobileNavProps) {
   return (
     <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-lg border-t border-white/10 px-6 py-3 flex justify-between items-center z-50">
       <button
@@ -57,6 +59,16 @@ export default function MobileNav({ activeTab, onTabChange, bucketCount }: Mobil
         <Bell className="w-6 h-6" />
         <span className="absolute -top-1 -right-1 w-2 h-2 bg-neon-magenta rounded-full shadow-[0_0_6px_rgba(255,0,255,0.8)]" />
       </button>
+      {canUpload && (
+        <button
+          onClick={onOpenUpload}
+          className={activeTab === 'upload' ? 'text-neon-cyan' : 'text-white/40'}
+          aria-label="Open upload"
+          title="Upload"
+        >
+          <UploadCloud className="w-6 h-6" />
+        </button>
+      )}
     </div>
   );
 }

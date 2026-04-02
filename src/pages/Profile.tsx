@@ -9,6 +9,7 @@ interface ProfileProps {
   libraryCount: number;
   friendsCount: number;
   onLogout: () => void;
+  role: 'admin' | 'player';
 }
 
 const recentActivity = [
@@ -35,7 +36,7 @@ const rarityColor: Record<string, string> = {
   LEGENDARY: 'text-neon-yellow border-neon-yellow/30 bg-neon-yellow/10',
 };
 
-export default function Profile({ libraryCount, friendsCount, onLogout }: ProfileProps) {
+export default function Profile({ libraryCount, friendsCount, onLogout, role }: ProfileProps) {
   const [notifications, setNotifications] = useState(true);
   const [editingName, setEditingName] = useState(false);
   const [displayName, setDisplayName] = useState('SYLVESTRE_01');
@@ -52,15 +53,9 @@ export default function Profile({ libraryCount, friendsCount, onLogout }: Profil
       className="space-y-8 pb-8"
     >
       {/* ── HERO CARD ── */}
-      <div className="relative overflow-hidden rounded-2xl border border-neon-magenta/30 bg-gradient-to-br from-neon-magenta/10 via-black to-neon-cyan/10 p-8 shadow-[0_0_40px_rgba(255,0,255,0.15)]">
+      <div className="relative overflow-hidden rounded-2xl border border-neon-magenta/30 bg-linear-to-br from-neon-magenta/10 via-black to-neon-cyan/10 p-8 shadow-[0_0_40px_rgba(255,0,255,0.15)]">
         {/* Background grid lines */}
-        <div
-          className="absolute inset-0 opacity-10 pointer-events-none"
-          style={{
-            backgroundImage: 'linear-gradient(rgba(0,243,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(0,243,255,0.3) 1px, transparent 1px)',
-            backgroundSize: '40px 40px',
-          }}
-        />
+        <div className="profile-grid-overlay absolute inset-0 opacity-10 pointer-events-none" />
 
         <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6">
           {/* Avatar */}
@@ -83,6 +78,8 @@ export default function Profile({ libraryCount, friendsCount, onLogout }: Profil
                   onChange={e => setDisplayName(e.target.value.toUpperCase())}
                   onBlur={() => setEditingName(false)}
                   onKeyDown={e => e.key === 'Enter' && setEditingName(false)}
+                  aria-label="Edit display name"
+                  title="Edit display name"
                   className="bg-white/10 border border-neon-cyan/40 rounded px-3 py-1 text-2xl font-black tracking-tighter outline-none text-white font-mono w-60"
                   maxLength={20}
                 />
@@ -103,6 +100,9 @@ export default function Profile({ libraryCount, friendsCount, onLogout }: Profil
             <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
               <span className="px-3 py-1 bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan text-[10px] font-mono rounded-full">
                 GRID_TIER: PLATINUM
+              </span>
+              <span className={`px-3 py-1 text-[10px] font-mono rounded-full border ${role === 'admin' ? 'bg-neon-magenta/10 border-neon-magenta/30 text-neon-magenta' : 'bg-white/5 border-white/20 text-white/60'}`}>
+                ROLE: {role.toUpperCase()}
               </span>
               <span className="px-3 py-1 bg-neon-magenta/10 border border-neon-magenta/30 text-neon-magenta text-[10px] font-mono rounded-full">
                 XP: 14,820
@@ -187,7 +187,7 @@ export default function Profile({ libraryCount, friendsCount, onLogout }: Profil
                 className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
                   ach.unlocked
                     ? 'border-white/10 bg-white/5 hover:border-neon-cyan/30'
-                    : 'border-white/5 bg-white/[0.02] opacity-50'
+                    : 'border-white/5 bg-white/5 opacity-50'
                 }`}
               >
                 <div className={`p-2 rounded-lg border ${rarityColor[ach.rarity]}`}>

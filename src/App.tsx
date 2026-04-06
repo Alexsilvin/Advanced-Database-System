@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { AnimatePresence } from 'motion/react';
-import { Game, TabType } from './types';
-import { fetchGames } from './services/api';
+import { AuthSessionResponse, Game, GameId, TabType } from './types';
+import { fetchCurrentUser, fetchGames, loginUser, logoutUser, requestGameDownloadUrl, signupUser } from './services/api';
 import { useGlitchEffect } from './hooks/useGlitchEffect';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
@@ -17,14 +16,15 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Welcome from './pages/Welcome';
 import Dashboard from './pages/Dashboard';
+import AdminDashboard from './pages/AdminDashboard';
 import GameDetail from './pages/GameDetail';
 import Profile from './pages/Profile';
+import AdminUpload from './pages/AdminUpload';
+import { UploadCloud } from 'lucide-react';
 
 type AppView = 'welcome' | 'login' | 'signup' | 'app';
 
 const LS_KEYS = {
-  isLoggedIn: 'neon-grid:is-logged-in',
-  username: 'neon-grid:username',
   activeTab: 'neon-grid:active-tab',
   library: 'neon-grid:library',
   bucket: 'neon-grid:bucket',
@@ -48,33 +48,101 @@ function readStorage<T>(key: string, fallback: T): T {
 }
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<AppView>(() => readStorage<boolean>(LS_KEYS.isLoggedIn, false) ? 'app' : 'welcome');
-  const [username, setUsername] = useState<string>(() => readStorage<string>(LS_KEYS.username, ''));
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => readStorage<boolean>(LS_KEYS.isLoggedIn, false));
+  const [currentView, setCurrentView] = useState<AppView>('welcome');
+  const [username, setUsername] = useState<string>('');
+  const [userRole, setUserRole] = useState<'admin' | 'player'>('player');
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [showDashboardOnce, setShowDashboardOnce] = useState(false);
+  const [isSessionChecking, setIsSessionChecking] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     const stored = readStorage<TabType>(LS_KEYS.activeTab, 'store');
     return stored === 'game-detail' ? 'store' : stored;
   });
   const [games, setGames] = useState<Game[]>([]);
-  const [library, setLibrary] = useState<number[]>(() => readStorage<number[]>(LS_KEYS.library, []));
-  const [bucket, setBucket] = useState<number[]>(() => readStorage<number[]>(LS_KEYS.bucket, []));
+  const [library, setLibrary] = useState<GameId[]>(() => readStorage<Array<string | number>>(LS_KEYS.library, []).map((id) => String(id)));
+  const [bucket, setBucket] = useState<GameId[]>(() => readStorage<Array<string | number>>(LS_KEYS.bucket, []).map((id) => String(id)));
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [toast, setToast] = useState<ToastState | null>(null);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const isGlitching = useGlitchEffect();
 
+  const applySessionUser = (sessionUser: AuthSessionResponse | null, preserveNavigation = false) => {
+    if (sessionUser) {
+      setUsername(sessionUser.username);
+      setUserRole(sessionUser.role);
+      setIsLoggedIn(true);
+      setCurrentView('app');
+      if (!preserveNavigation) {
+        setActiveTab(sessionUser.role === 'admin' ? 'admin' : 'store');
+        setShowDashboardOnce(sessionUser.role === 'admin');
+      }
+      return;
+    }
+
+    setUsername('');
+    setUserRole('player');
+    setIsLoggedIn(false);
+    setCurrentView('welcome');
+    setShowDashboardOnce(false);
+  };
+
   useEffect(() => {
     loadGames();
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(LS_KEYS.isLoggedIn, JSON.stringify(isLoggedIn));
-    localStorage.setItem(LS_KEYS.username, JSON.stringify(username));
-  }, [isLoggedIn, username]);
+    let isMounted = true;
+
+    const syncSession = async () => {
+      try {
+        const sessionUser = await fetchCurrentUser();
+        if (!isMounted) return;
+
+        applySessionUser(sessionUser);
+      } catch {
+        if (!isMounted) return;
+        applySessionUser(null);
+      } finally {
+        if (isMounted) {
+          setIsSessionChecking(false);
+        }
+      }
+    };
+
+    syncSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const resyncSession = () => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+
+      void (async () => {
+        try {
+          const sessionUser = await fetchCurrentUser();
+          applySessionUser(sessionUser, true);
+        } catch {
+          // Ignore transient network errors during background resync.
+        }
+      })();
+    };
+
+    window.addEventListener('focus', resyncSession);
+    document.addEventListener('visibilitychange', resyncSession);
+
+    return () => {
+      window.removeEventListener('focus', resyncSession);
+      document.removeEventListener('visibilitychange', resyncSession);
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(LS_KEYS.activeTab, JSON.stringify(activeTab));
@@ -120,11 +188,13 @@ export default function App() {
       }
 
       const key = event.key.toLowerCase();
+      if (key === 'a' && userRole === 'admin') setActiveTab('admin');
       if (key === 's') setActiveTab('store');
       if (key === 'l') setActiveTab('library');
       if (key === 'f') setActiveTab('friends');
       if (key === 'b') setActiveTab('bucket');
       if (key === 'n') setActiveTab('notifications');
+      if (key === 'u') setActiveTab('upload');
       if (key === '/') {
         event.preventDefault();
         const search = document.querySelector('input[placeholder="SEARCH THE GRID..."]') as HTMLInputElement | null;
@@ -157,8 +227,6 @@ export default function App() {
     } catch (err) {
       setGames([]);
       setDbError(err instanceof Error ? err.message : 'NETWORK_FAILURE: GRID_OFFLINE');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -168,17 +236,21 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUsername('');
-    setCurrentView('welcome');
-    setActiveTab('store');
-    setSelectedGame(null);
-    setSearchTerm('');
-    setShowDashboardOnce(false);
-    notify('Disconnected from NEON-GRID.', 'info');
+    void (async () => {
+      await logoutUser();
+      setIsLoggedIn(false);
+      setUsername('');
+      setUserRole('player');
+      setCurrentView('welcome');
+      setActiveTab('store');
+      setSelectedGame(null);
+      setSearchTerm('');
+      setShowDashboardOnce(false);
+      notify('Disconnected from NEON-GRID.', 'info');
+    })();
   };
 
-  const addToLibrary = (gameId: number) => {
+  const addToLibrary = (gameId: GameId) => {
     const gameName = games.find((g) => g.id === gameId)?.title ?? 'Game';
     if (!library.includes(gameId)) {
       setLibrary((prev) => [...prev, gameId]);
@@ -189,7 +261,7 @@ export default function App() {
     setBucket((prev) => prev.filter((id) => id !== gameId));
   };
 
-  const addToBucket = (gameId: number) => {
+  const addToBucket = (gameId: GameId) => {
     const gameName = games.find((g) => g.id === gameId)?.title ?? 'Game';
     if (library.includes(gameId)) {
       notify(`${gameName} is already owned.`, 'info');
@@ -207,7 +279,7 @@ export default function App() {
     }
   };
 
-  const removeFromBucket = (gameId: number) => {
+  const removeFromBucket = (gameId: GameId) => {
     const gameName = games.find((g) => g.id === gameId)?.title ?? 'Game';
 
     setBucket((prev) => {
@@ -240,10 +312,31 @@ export default function App() {
     ? games.filter(g => g.title.toLowerCase().includes(searchTerm.toLowerCase()))
     : [];
 
+  const handleDownloadGame = async (gameId: GameId) => {
+    const targetGame = games.find((game) => game.id === gameId);
+    if (!targetGame) {
+      notify('Selected game was not found.', 'error');
+      return;
+    }
+
+    try {
+      const download = await requestGameDownloadUrl({
+        gameId,
+        expiresInSeconds: 120,
+      });
+
+      window.open(download.signedUrl, '_blank', 'noopener,noreferrer');
+      notify(`Download link ready for ${targetGame.title}.`, 'success');
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Failed to create download link.', 'error');
+      throw error;
+    }
+  };
+
   // Welcome Page
   if (currentView === 'welcome') {
     return (
-      <>
+      <div className="page-enter">
         <Welcome
           onGetStarted={() => setCurrentView('signup')}
           onLogin={() => setCurrentView('login')}
@@ -258,21 +351,23 @@ export default function App() {
             onClose={() => setToast(null)}
           />
         )}
-      </>
+      </div>
     );
   }
 
   // Signup Page
   if (currentView === 'signup') {
     return (
-      <>
+      <div className="page-enter">
         <Signup
-          onSignup={(newUsername) => {
-            setUsername(newUsername);
+          onSignup={async (newUsername, email, password) => {
+            const createdUser = await signupUser({ username: newUsername, email, password });
+            setUsername(createdUser.username);
+            setUserRole(createdUser.role);
             setIsLoggedIn(true);
             setCurrentView('app');
             setShowDashboardOnce(true);
-            notify(`Welcome to NEON-GRID, ${newUsername}!`, 'success');
+            notify(`Welcome to NEON-GRID, ${createdUser.username}!`, 'success');
             loadGames();
           }}
           onBackToWelcome={() => setCurrentView('welcome')}
@@ -286,20 +381,25 @@ export default function App() {
             onClose={() => setToast(null)}
           />
         )}
-      </>
+      </div>
     );
   }
 
   // Login Page
   if (currentView === 'login') {
     return (
-      <>
+      <div className="page-enter">
         <Login
-          onLogin={() => {
-            setUsername('player_one');
+          onLogin={async (loginUsername, password) => {
+            const sessionUser = await loginUser({ username: loginUsername, password });
+
+            setUsername(sessionUser.username);
+            setUserRole(sessionUser.role);
             setIsLoggedIn(true);
             setCurrentView('app');
-            notify('Connected to NEON-GRID.', 'success');
+            setActiveTab(sessionUser.role === 'admin' ? 'admin' : 'store');
+            setShowDashboardOnce(sessionUser.role === 'admin');
+            notify(sessionUser.role === 'admin' ? 'Admin access granted.' : 'Connected to NEON-GRID.', 'success');
             loadGames();
           }}
         />
@@ -312,30 +412,18 @@ export default function App() {
             onClose={() => setToast(null)}
           />
         )}
-      </>
+      </div>
     );
   }
 
-  // Main App View
-  if (loading) {
+  if (isSessionChecking) {
     return (
-      <>
-        <div className="min-h-screen flex items-center justify-center bg-black">
-          <div className="text-center space-y-3">
-            <p className="text-neon-cyan text-sm font-mono tracking-widest animate-pulse">BOOTING_NEON_GRID...</p>
-            <p className="text-white/40 text-xs font-mono">Synchronizing catalog protocols</p>
-          </div>
+      <div className="page-enter min-h-screen flex items-center justify-center bg-[#070b18] text-white">
+        <div className="rounded-3xl border border-white/10 bg-black/60 px-8 py-6 text-center space-y-2">
+          <p className="text-xs font-mono tracking-[0.35em] text-neon-cyan uppercase">Syncing session</p>
+          <p className="text-sm text-white/60 font-mono">Checking your database login...</p>
         </div>
-        {toast && (
-          <Toast
-            message={toast.message}
-            variant={toast.variant}
-            actionLabel={toast.actionLabel}
-            onAction={toast.onAction}
-            onClose={() => setToast(null)}
-          />
-        )}
-      </>
+      </div>
     );
   }
 
@@ -351,16 +439,71 @@ export default function App() {
         bucketCount={bucket.length}
       />
 
+      {userRole === 'admin' && currentView === 'app' && (
+        <div className="max-w-7xl mx-auto w-full px-4 pt-4">
+          <div className="rounded-2xl border border-neon-magenta/25 bg-linear-to-r from-neon-magenta/10 to-neon-cyan/10 px-5 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-mono tracking-[0.35em] text-neon-magenta uppercase">Admin session live</p>
+              <p className="text-sm text-white/70 font-mono mt-1">Database role: <span className="text-neon-cyan font-black uppercase">ADMIN</span> · upload and catalog tools are unlocked.</p>
+            </div>
+            <button
+              onClick={() => setActiveTab('upload')}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest"
+            >
+              <UploadCloud className="w-4 h-4" />
+              Upload ROM
+            </button>
+          </div>
+        </div>
+      )}
+
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8 flex gap-8">
         <Sidebar
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onLogout={handleLogout}
+          onOpenUpload={() => setActiveTab('upload')}
+          canUpload={userRole === 'admin'}
         />
 
         <div className="flex-1 py-8 px-6 min-w-0">
-          <AnimatePresence mode="wait">
-            {showDashboardOnce && activeTab === 'store' && (
+          {activeTab === 'admin' && userRole === 'admin' && (
+            <AdminDashboard
+              username={username}
+              onTabChange={(tab) => {
+                setActiveTab(tab);
+                if (tab !== 'admin') {
+                  setShowDashboardOnce(false);
+                }
+              }}
+              onOpenUpload={() => setActiveTab('upload')}
+            />
+          )}
+
+          {activeTab === 'admin' && userRole !== 'admin' && (
+            <div className="page-enter rounded-3xl border border-white/10 bg-white/5 p-8 text-center space-y-3">
+              <p className="text-xs font-mono tracking-[0.35em] text-neon-magenta uppercase">Access denied</p>
+              <h3 className="text-2xl font-black italic tracking-tighter">Admin only</h3>
+              <p className="text-sm text-white/60 font-mono">This tab is only visible to admin accounts.</p>
+              <button onClick={() => setActiveTab('store')} className="px-5 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest">Back to store</button>
+            </div>
+          )}
+
+          {showDashboardOnce && activeTab === 'store' && userRole === 'admin' && (
+              <AdminDashboard
+                username={username}
+                onTabChange={(tab) => {
+                  setShowDashboardOnce(false);
+                  setActiveTab(tab);
+                }}
+                onOpenUpload={() => {
+                  setShowDashboardOnce(false);
+                  setActiveTab('upload');
+                }}
+              />
+            )}
+
+          {showDashboardOnce && activeTab === 'store' && userRole !== 'admin' && (
               <Dashboard
                 username={username}
                 libraryCount={library.length}
@@ -374,7 +517,7 @@ export default function App() {
               />
             )}
 
-            {!showDashboardOnce && activeTab === 'store' && (
+          {!showDashboardOnce && activeTab === 'store' && (
               <Store
                 games={games}
                 library={library}
@@ -386,7 +529,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'game-detail' && (
+          {activeTab === 'game-detail' && (
               <GameDetail
                 game={selectedGame}
                 owned={selectedGame ? library.includes(selectedGame.id) : false}
@@ -394,22 +537,24 @@ export default function App() {
                 onBack={() => setActiveTab('store')}
                 onAcquire={addToLibrary}
                 onAddToBucket={addToBucket}
+                onDownload={handleDownloadGame}
               />
             )}
 
-            {activeTab === 'library' && (
+          {activeTab === 'library' && (
               <Library
                 games={games}
                 library={library}
                 onTabChange={setActiveTab}
+                onDownload={handleDownloadGame}
               />
             )}
 
-            {activeTab === 'friends' && (
+          {activeTab === 'friends' && (
               <Friends />
             )}
 
-            {activeTab === 'bucket' && (
+          {activeTab === 'bucket' && (
               <Bucket
                 games={games}
                 bucket={bucket}
@@ -420,22 +565,44 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'notifications' && (
+          {activeTab === 'notifications' && (
               <Notifications />
             )}
 
-            {activeTab === 'profile' && (
+          {activeTab === 'profile' && (
               <Profile
                 libraryCount={library.length}
                 friendsCount={4}
-                onLogout={() => setIsLoggedIn(false)}
+                onLogout={handleLogout}
+                role={userRole}
               />
             )}
-          </AnimatePresence>
+
+          {activeTab === 'upload' && userRole === 'admin' && (
+              <AdminUpload
+                games={games}
+                onBack={() => setActiveTab('store')}
+              />
+            )}
+
+          {activeTab === 'upload' && userRole !== 'admin' && (
+            <div className="page-enter rounded-3xl border border-white/10 bg-white/5 p-8 text-center space-y-3">
+              <p className="text-xs font-mono tracking-[0.35em] text-neon-magenta uppercase">Access denied</p>
+              <h3 className="text-2xl font-black italic tracking-tighter">Admin only</h3>
+              <p className="text-sm text-white/60 font-mono">Upload tools are available only to admin accounts. Players can browse, buy, and manage their library.</p>
+              <button onClick={() => setActiveTab('store')} className="px-5 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest">Back to store</button>
+            </div>
+          )}
         </div>
       </main>
 
-      <MobileNav activeTab={activeTab} onTabChange={setActiveTab} bucketCount={bucket.length} />
+      <MobileNav
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        bucketCount={bucket.length}
+        canUpload={userRole === 'admin'}
+        onOpenUpload={() => setActiveTab('upload')}
+      />
 
       <footer className="mt-auto py-8 border-t border-white/5 text-center">
         <p className="text-[10px] font-mono text-white/20 tracking-[0.3em]">

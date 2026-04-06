@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ShoppingCart, Trash2, Terminal, Zap } from 'lucide-react';
-import { Game, TabType } from '../types';
+import { Game, GameId, TabType } from '../types';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 interface BucketProps {
   games: Game[];
-  bucket: number[];
-  library: number[];
-  onRemoveFromBucket: (gameId: number) => void;
+  bucket: GameId[];
+  library: GameId[];
+  onRemoveFromBucket: (gameId: GameId) => void;
   onAcquireAll: () => void;
   onTabChange: (tab: TabType) => void;
 }
@@ -22,10 +22,10 @@ export default function Bucket({
   onTabChange,
 }: BucketProps) {
   const [confirmAcquire, setConfirmAcquire] = useState(false);
-  const [pendingRemoveId, setPendingRemoveId] = useState<number | null>(null);
+  const [pendingRemoveId, setPendingRemoveId] = useState<GameId | null>(null);
 
   const bucketGames = games.filter((g) => bucket.includes(g.id));
-  const total = bucketGames.reduce((sum, g) => sum + g.price, 0);
+  const total = bucketGames.reduce((sum, g) => sum + Number(g.price), 0);
   const pendingRemoveGame = pendingRemoveId ? games.find((g) => g.id === pendingRemoveId) : null;
 
   return (
@@ -72,7 +72,7 @@ export default function Bucket({
                   <p className="text-[10px] font-mono text-white/40 uppercase">{game.category}</p>
                 </div>
                 <span className="text-lg font-black text-neon-magenta italic shrink-0">
-                  ${game.price}
+                  {Number(game.price).toFixed(2)}
                 </span>
                 <button
                   onClick={() => setPendingRemoveId(game.id)}

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Game } from '../../types';
+import { Game, GameId } from '../../types';
 
 interface FeaturedCarouselProps {
     games: Game[];
-    onBuy: (gameId: number) => void;
+    onBuy: (gameId: GameId) => void;
     onSelect: (game: Game) => void;
-    library: number[];
+    library: GameId[];
 }
 
 export default function FeaturedCarousel({ games, onBuy, onSelect, library }: FeaturedCarouselProps) {

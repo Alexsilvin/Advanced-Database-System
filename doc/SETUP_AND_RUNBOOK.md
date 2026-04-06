@@ -14,7 +14,27 @@
 DATABASE_URL="postgresql://user:password@host:port/database"
 GEMINI_API_KEY="your_key_if_needed"
 APP_URL="http://localhost:3000"
+ADMIN_BOOTSTRAP_USERNAME="admin"
+ADMIN_BOOTSTRAP_PASSWORD="your_admin_password"
 ```
+
+If you are using Filebase for ROM storage, also configure:
+
+```env
+S3_REGION="us-east-1"
+S3_ENDPOINT="https://s3.filebase.com"
+S3_BUCKET="sfc-rom"
+S3_ACCESS_KEY_ID="your_filebase_access_key"
+S3_SECRET_ACCESS_KEY="your_filebase_secret_key"
+S3_FORCE_PATH_STYLE="true"
+FILEBASE_BUCKET="sfc-rom"
+FILEBASE_IPFS_RPC_ENDPOINT="https://rpc.filebase.io"
+```
+
+Authentication now uses the database session flow:
+- Signup creates a player account and a signed session cookie.
+- Login verifies the stored password hash and restores the role from the database.
+- The admin upload page only appears for the admin account seeded from `ADMIN_BOOTSTRAP_USERNAME` and `ADMIN_BOOTSTRAP_PASSWORD`.
 
 ## 3. Install and Run
 
@@ -59,6 +79,16 @@ npm run preview
 ### 6.3 Local UI loads but DB unavailable
 - System serves fallback mock catalog for `/api/games`
 - Update DB settings and restart app
+
+### 6.4 Upload page fails to create a Filebase URL
+- Confirm `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, and `S3_SECRET_ACCESS_KEY`
+- Make sure the Filebase bucket exists and the bucket name matches `S3_BUCKET` or `FILEBASE_BUCKET`
+- If the signed upload works but registration fails, verify `DATABASE_URL` and the target game row
+
+### 6.5 Upload fails with a license length error
+- Keep `licenseType` under 40 characters
+- Use short values like `licensed`, `unknown`, or `fan_patch`
+- If the database still has the older varchar limit, rerun the ROM/poster migration before trying again
 
 ## 7. Operational Checklist (Before Demo)
 

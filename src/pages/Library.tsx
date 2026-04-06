@@ -4,15 +4,16 @@ import {
   Terminal, LayoutGrid, List, ShieldCheck, Clock,
   Heart, Download, Server, Lock, User
 } from 'lucide-react';
-import { Game, TabType, Friend } from '../types';
+import { Game, GameId, TabType, Friend } from '../types';
 import LibraryItem from '../components/game/LibraryItem';
 
 const LIBRARY_PREFS_KEY = 'neon-grid:library-prefs';
 
 interface LibraryProps {
   games: Game[];
-  library: number[];
+  library: GameId[];
   onTabChange: (tab: TabType) => void;
+  onDownload: (id: GameId) => Promise<void>;
 }
 
 type FilterType = 'all' | 'recent' | 'favorites' | 'installed' | 'collections';
@@ -33,7 +34,7 @@ const categoryFilters: { key: FilterType; label: string; icon: React.ReactNode }
   { key: 'collections', label: 'Collections',      icon: <Server className="w-4 h-4" /> },
 ];
 
-export default function Library({ games, library, onTabChange }: LibraryProps) {
+export default function Library({ games, library, onTabChange, onDownload }: LibraryProps) {
   const [activeFilter, setActiveFilter] = useState<FilterType>(() => {
     try {
       const raw = localStorage.getItem(LIBRARY_PREFS_KEY);
@@ -64,13 +65,24 @@ export default function Library({ games, library, onTabChange }: LibraryProps) {
       return 'recent';
     }
   });
-  const [installedGames, setInstalledGames] = useState<number[]>([]);
+  const [installedGames, setInstalledGames] = useState<GameId[]>(() => {
+    try {
+      const raw = localStorage.getItem(LIBRARY_PREFS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as { installedGames?: Array<string | number> };
+      if (!Array.isArray(parsed.installedGames)) return [];
+      return parsed.installedGames.map((id) => String(id));
+    } catch {
+      return [];
+    }
+  });
 
-  const persistPrefs = (next: { activeFilter?: FilterType; viewMode?: 'grid' | 'list'; sortOrder?: SortType }) => {
+  const persistPrefs = (next: { activeFilter?: FilterType; viewMode?: 'grid' | 'list'; sortOrder?: SortType; installedGames?: GameId[] }) => {
     const merged = {
       activeFilter,
       viewMode,
       sortOrder,
+      installedGames,
       ...next,
     };
     localStorage.setItem(LIBRARY_PREFS_KEY, JSON.stringify(merged));
@@ -87,8 +99,13 @@ export default function Library({ games, library, onTabChange }: LibraryProps) {
     sortOrder === 'name' ? a.title.localeCompare(b.title) : 0
   );
 
-  const handleInstalled = (id: number) =>
-    setInstalledGames(prev => (prev.includes(id) ? prev : [...prev, id]));
+  const handleInstalled = (id: GameId) =>
+    setInstalledGames(prev => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      persistPrefs({ installedGames: next });
+      return next;
+    });
 
   return (
     <motion.div
@@ -239,6 +256,7 @@ export default function Library({ games, library, onTabChange }: LibraryProps) {
                 game={game}
                 viewMode="grid"
                 onInstalled={handleInstalled}
+                onDownload={onDownload}
               />
             ))}
           </div>
@@ -250,6 +268,7 @@ export default function Library({ games, library, onTabChange }: LibraryProps) {
                 game={game}
                 viewMode="list"
                 onInstalled={handleInstalled}
+                onDownload={onDownload}
               />
             ))}
           </div>

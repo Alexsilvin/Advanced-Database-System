@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Cpu, Terminal, Zap, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 
 interface SignupProps {
-  onSignup: (username: string) => void;
+  onSignup: (username: string, email: string, password: string) => Promise<void>;
   onBackToWelcome: () => void;
 }
 
@@ -17,6 +17,7 @@ export default function Signup({ onSignup, onBackToWelcome }: SignupProps) {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState('');
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -37,16 +38,20 @@ export default function Signup({ onSignup, onBackToWelcome }: SignupProps) {
     return newErrors;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors = validateForm();
+    setSubmitError('');
 
     if (Object.keys(newErrors).length === 0) {
       setIsLoading(true);
-      // Simulate API call
-      setTimeout(() => {
-        onSignup(username);
-      }, 1000);
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await onSignup(username, email, password);
+      } catch (error) {
+        setIsLoading(false);
+        setSubmitError(error instanceof Error ? error.message : 'Signup failed');
+      }
     } else {
       setErrors(newErrors);
     }
@@ -246,6 +251,8 @@ export default function Signup({ onSignup, onBackToWelcome }: SignupProps) {
               </span>
             </p>
           </div>
+
+          {submitError && <p className="text-xs text-red-400 font-mono text-center">{submitError}</p>}
         </form>
 
         {/* Info */}

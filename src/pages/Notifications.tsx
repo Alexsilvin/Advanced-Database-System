@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Bell, User, Zap, ShoppingBag, X, CheckCheck } from 'lucide-react';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import { urlToHttpOptions } from 'url';
 
 interface Notification {
   id: number;

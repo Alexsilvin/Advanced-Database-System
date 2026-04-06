@@ -1,16 +1,26 @@
 import React from 'react';
-import { Gamepad2, Users, ShoppingBag, LogOut } from 'lucide-react';
+import { Gamepad2, Users, ShoppingBag, LogOut, UploadCloud, ShieldCheck } from 'lucide-react';
 import { TabType } from '../../types';
 
 interface SidebarProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
   onLogout: () => void;
+  onOpenUpload: () => void;
+  canUpload: boolean;
 }
 
-export default function Sidebar({ activeTab, onTabChange, onLogout }: SidebarProps) {
+export default function Sidebar({ activeTab, onTabChange, onLogout, onOpenUpload, canUpload }: SidebarProps) {
   return (
     <nav className="hidden lg:flex flex-col gap-2 w-64 shrink-0 py-8 px-4 border-r border-white/5 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
+      {canUpload && (
+        <NavButton 
+          active={activeTab === 'admin'} 
+          onClick={() => onTabChange('admin')}
+          icon={<ShieldCheck className="w-5 h-5" />}
+          label="ADMIN HUB"
+        />
+      )}
       <NavButton 
         active={activeTab === 'store'} 
         onClick={() => onTabChange('store')}
@@ -37,6 +47,15 @@ export default function Sidebar({ activeTab, onTabChange, onLogout }: SidebarPro
             <span className="text-xs font-mono">ALL SYSTEMS NOMINAL</span>
           </div>
         </div>
+        {canUpload && (
+          <button
+            onClick={onOpenUpload}
+            className="flex items-center gap-3 px-4 py-2 text-neon-cyan hover:text-white hover:bg-white/5 rounded-xl transition-colors text-sm font-mono border border-neon-cyan/20"
+          >
+            <UploadCloud className="w-4 h-4" />
+            UPLOAD ROM
+          </button>
+        )}
         <button
           onClick={onLogout}
           className="flex items-center gap-3 px-4 py-2 text-white/40 hover:text-red-400 transition-colors text-sm font-mono"

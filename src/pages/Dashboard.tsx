@@ -1,14 +1,15 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Gamepad2, Users, ShoppingCart, Zap, TrendingUp, Crown, Clock, Download } from 'lucide-react';
-import { Game, TabType } from '../types';
+import { Game, GameId, TabType } from '../types';
+import { formatPrice } from '../utils';
 
 interface DashboardProps {
   username: string;
   libraryCount: number;
   bucketCount: number;
   games: Game[];
-  library: number[];
+  library: GameId[];
   onTabChange: (tab: TabType) => void;
 }
 
@@ -34,7 +35,7 @@ export default function Dashboard({ username, libraryCount, bucketCount, games, 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="relative p-8 border-2 border-neon-cyan/30 rounded-2xl bg-gradient-to-r from-neon-cyan/10 to-neon-magenta/10 overflow-hidden"
+        className="relative p-8 border-2 border-neon-cyan/30 rounded-2xl bg-linear-to-r from-neon-cyan/10 to-neon-magenta/10 overflow-hidden"
       >
         <div className="absolute inset-0 opacity-5 bg-[linear-gradient(45deg,transparent_25%,rgba(0,243,255,0.2)_25%,rgba(0,243,255,0.2)_50%,transparent_50%,transparent_75%,rgba(0,243,255,0.2)_75%,rgba(0,243,255,0.2))] bg-size-[40px_40px]" />
 
@@ -154,7 +155,7 @@ export default function Dashboard({ username, libraryCount, bucketCount, games, 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-t from-black to-transparent" />
                   <div className="absolute top-2 right-2">
                     <span className="px-2 py-1 bg-green-400/20 text-green-400 text-[10px] font-black rounded border border-green-400/40">
                       OWNED
@@ -208,7 +209,7 @@ export default function Dashboard({ username, libraryCount, bucketCount, games, 
                 <p className="text-xs text-white/40 font-mono">{game.category}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-sm font-black text-neon-magenta italic">${game.price.toFixed(2)}</p>
+                <p className="text-sm font-black text-neon-magenta italic">{formatPrice(game.price)}</p>
                 <p className="text-xs text-white/40 font-mono">
                   {game.rating} rating
                 </p>

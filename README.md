@@ -1,10 +1,42 @@
-# Retro Game Store Platform (Epic Games Style for NES/Retro Titles)
+<p align="center">
+   <img src="https://capsule-render.vercel.app/api?type=waving&height=260&color=0:00f3ff,50:ff2f6d,100:08090f&text=NEON%20GRID&fontColor=ffffff&fontSize=78&fontAlignY=40&animation=twinkling&desc=Retro%20Game%20Store%20Platform&descAlignY=64&descSize=19" alt="NEON GRID banner" />
+</p>
 
-This project is a full-stack prototype of a digital game store focused on retro games. Think of the flow like Epic Games Store, but specialized for classic titles (NES-style and similar retro collections).
+<p align="center">
+   <img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=700&size=18&pause=1200&color=00F3FF&center=true&vCenter=true&width=920&lines=React%20%2B%20TypeScript%20Frontend;Express%20%2B%20PostgreSQL%20Backend;Admin%20ROM%20Upload%20%7C%20Authenticated%20Signed%20Downloads;Cyber-Retro%20Storefront%20Experience" alt="Animated project intro" />
+</p>
 
-The current codebase already includes:
+<p align="center">
+   <img src="https://img.shields.io/badge/THEME-Neon%20Cyber-08090f?style=for-the-badge&logo=codemagic&logoColor=00f3ff&labelColor=0f111a" alt="Theme Neon Cyber" />
+   <img src="https://img.shields.io/badge/FRONTEND-React%20%2B%20TypeScript-0f111a?style=for-the-badge&logo=react&logoColor=00f3ff&labelColor=08090f" alt="Frontend React TypeScript" />
+   <img src="https://img.shields.io/badge/BACKEND-Express%20%2B%20PostgreSQL-0f111a?style=for-the-badge&logo=postgresql&logoColor=ff2f6d&labelColor=08090f" alt="Backend Express PostgreSQL" />
+   <img src="https://img.shields.io/badge/AUTH-Session%20Role%20Based-0f111a?style=for-the-badge&logo=shield&logoColor=00f3ff&labelColor=08090f" alt="Session Role Based Auth" />
+   <img src="https://img.shields.io/badge/STORAGE-Filebase%20S3%20Signed%20URLs-0f111a?style=for-the-badge&logo=amazons3&logoColor=ff2f6d&labelColor=08090f" alt="Filebase S3 Signed URLs" />
+</p>
+
+<p align="center">
+   <img src="https://img.shields.io/badge/STATUS-Prototype%20%E2%86%92%20Production%20Path-08090f?style=flat-square&logo=vercel&logoColor=00f3ff&labelColor=0f111a" alt="Status Prototype to Production Path" />
+</p>
+
+<p align="center">
+   <b>NEON GRID</b> is a full-stack retro game marketplace prototype inspired by modern digital storefronts, rebuilt with a neon-cyber aesthetic and database-first architecture.
+</p>
+
+<p align="center">
+   <a href="#1-project-vision">Project Vision</a> •
+   <a href="#3-technical-architecture">Technical Architecture</a> •
+   <a href="#6-suggested-postgresql-ddl-target">Target Database DDL</a> •
+   <a href="#11-practical-next-steps-database-driven-completion">Next Steps</a>
+</p>
+
+## Platform Snapshot
+
+This project is a full-stack prototype of a digital game store focused on NES/retro titles.
+
+The current codebase includes:
 - A React + TypeScript frontend with Store, Library, Friends, Bucket (cart), Notifications, and Game Detail pages.
 - An Express + PostgreSQL backend with seeded catalog and resilient fallback behavior.
+- Admin upload flows and authenticated signed-download support for ROM assets.
 - A clear path to evolve into a production-grade, database-driven commerce platform.
 
 ## Diagrams (Top-Level Showcase)

@@ -5,6 +5,8 @@ import { Pool } from "pg";
 import dotenv from "dotenv";
 import net from "net";
 import crypto from "crypto";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 dotenv.config();
 
@@ -54,9 +56,11 @@ function cookieOptions() {
 }
 
 function getAdminBootstrapCredentials() {
+  const username = process.env.ADMIN_BOOTSTRAP_USERNAME || 'admin';
   return {
-    username: process.env.ADMIN_BOOTSTRAP_USERNAME || 'admin',
+    username,
     password: process.env.ADMIN_BOOTSTRAP_PASSWORD || 'Admin1234!',
+    email: process.env.ADMIN_BOOTSTRAP_EMAIL || `${username}@local.admin`,
   };
 }
 
@@ -73,6 +77,63 @@ function parseCookies(cookieHeader: string | undefined) {
   }
 
   return cookies;
+}
+
+type GameRow = {
+  id: string;
+  title: string;
+  rom_storage_key: string | null;
+  rom_filename: string | null;
+  is_downloadable: boolean;
+};
+
+let s3Client: S3Client | null = null;
+
+function getS3Client() {
+  if (!s3Client) {
+    const endpoint = process.env.S3_ENDPOINT;
+    const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+
+    if (!endpoint || !accessKeyId || !secretAccessKey) {
+      throw new Error('S3_SIGNING_CONFIG_MISSING');
+    }
+
+    s3Client = new S3Client({
+      region: process.env.S3_REGION || 'us-east-1',
+      endpoint,
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
+      forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
+    });
+  }
+
+  return s3Client;
+}
+
+function getBucketName() {
+  return process.env.S3_BUCKET || process.env.FILEBASE_BUCKET || null;
+}
+
+function requireRomAdminKey(req: express.Request) {
+  const configuredKey = process.env.ROM_ADMIN_KEY;
+  if (!configuredKey) return true;
+  return req.headers['x-admin-key'] === configuredKey;
+}
+
+function sanitizeFilename(filename: string) {
+  return filename
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || 'rom.bin';
+}
+
+function normalizeLicenseType(value: unknown) {
+  const text = typeof value === 'string' ? value.trim() : 'unknown';
+  return text.slice(0, 40) || 'unknown';
 }
 
 // Lazy initialization of PostgreSQL pool
@@ -144,10 +205,10 @@ async function initDb() {
     const adminCredentials = hashPassword(admin.password);
     await p.query(
       `INSERT INTO users (username, avatar_url, email, password_hash, password_salt, role)
-       VALUES ($1, NULL, NULL, $2, $3, 'admin')
+       VALUES ($1, NULL, $2, $3, $4, 'admin')
        ON CONFLICT (username)
        DO UPDATE SET role = 'admin', password_hash = EXCLUDED.password_hash, password_salt = EXCLUDED.password_salt`,
-      [admin.username, adminCredentials.hash, adminCredentials.salt]
+      [admin.username, admin.email, adminCredentials.hash, adminCredentials.salt]
     );
 
     const res = await p.query("SELECT COUNT(*) FROM games");
@@ -366,7 +427,7 @@ async function startServer() {
            LIMIT 5`
         ),
         p.query(
-          `SELECT id, title, category, price, image
+          `SELECT id, title, category, price, image_url AS image
            FROM games
            ORDER BY id DESC
            LIMIT 5`
@@ -480,6 +541,240 @@ async function startServer() {
     } catch (err) {
       console.error('Failed to log out:', err);
       res.status(500).json({ error: 'Failed to log out' });
+    }
+  });
+
+  app.post('/api/rom-upload-url', async (req, res) => {
+    const p = getPool();
+    if (!p) return res.status(500).json({ error: 'Database not configured' });
+
+    if (!requireRomAdminKey(req)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+      const { gameId, filename, contentType, expiresInSeconds } = req.body ?? {};
+      if (!gameId || !filename) {
+        return res.status(400).json({ error: 'gameId and filename are required' });
+      }
+
+      const gameRes = await p.query<{ id: string; title: string }>(
+        `SELECT id, title
+         FROM games
+         WHERE id = $1
+         LIMIT 1`,
+        [String(gameId)]
+      );
+
+      if (gameRes.rows.length === 0) {
+        return res.status(404).json({ error: 'Game not found' });
+      }
+
+      const bucket = getBucketName();
+      if (!bucket) {
+        return res.status(500).json({ error: 'S3_BUCKET is not configured' });
+      }
+
+      const storageKey = `roms/${String(gameId)}/${sanitizeFilename(String(filename))}`;
+      const uploadUrl = await getSignedUrl(
+        getS3Client(),
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: storageKey,
+          ContentType: contentType || 'application/octet-stream',
+        }),
+        { expiresIn: Math.min(Math.max(Number(expiresInSeconds) || 300, 60), 900) }
+      );
+
+      return res.json({
+        gameId: gameRes.rows[0].id,
+        title: gameRes.rows[0].title,
+        uploadUrl,
+        storageKey,
+        expiresInSeconds: Math.min(Math.max(Number(expiresInSeconds) || 300, 60), 900),
+      });
+    } catch (err) {
+      console.error('Failed to create ROM upload URL:', err);
+      return res.status(500).json({ error: 'Failed to create upload URL' });
+    }
+  });
+
+  app.post('/api/register-rom', async (req, res) => {
+    const p = getPool();
+    if (!p) return res.status(500).json({ error: 'Database not configured' });
+
+    if (!requireRomAdminKey(req)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+      const { gameId, romStorageKey, romFilename, romSizeBytes, romSha256, licenseType, isDownloadable } = req.body ?? {};
+      if (!gameId || !romStorageKey) {
+        return res.status(400).json({ error: 'gameId and romStorageKey are required' });
+      }
+
+      const updateRes = await p.query(
+        `UPDATE games
+         SET rom_storage_key = $1,
+             rom_filename = $2,
+             rom_size_bytes = $3,
+             rom_sha256 = $4,
+             license_type = $5,
+             is_downloadable = $6
+         WHERE id = $7
+         RETURNING id, title, rom_storage_key, rom_filename, is_downloadable`,
+        [
+          String(romStorageKey),
+          romFilename || null,
+          romSizeBytes || null,
+          romSha256 || null,
+          licenseType || 'unknown',
+          isDownloadable ?? true,
+          String(gameId),
+        ]
+      );
+
+      if (updateRes.rows.length === 0) {
+        return res.status(404).json({ error: 'Game not found' });
+      }
+
+      return res.json({ game: updateRes.rows[0] });
+    } catch (err) {
+      console.error('Failed to register ROM metadata:', err);
+      return res.status(500).json({ error: 'Failed to register ROM metadata' });
+    }
+  });
+
+  app.post('/api/admin/upload-rom', express.raw({ type: 'application/octet-stream', limit: '200mb' }), async (req, res) => {
+    const p = getPool();
+    if (!p) return res.status(500).json({ error: 'Database not configured' });
+
+    try {
+      const sessionUser = await getSessionUser(req);
+      if (!sessionUser || sessionUser.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+
+      const requestUrl = new URL(req.originalUrl, 'http://localhost');
+      const gameId = String(requestUrl.searchParams.get('gameId') || '').trim();
+      const filename = String(requestUrl.searchParams.get('filename') || '').trim();
+      const licenseType = normalizeLicenseType(requestUrl.searchParams.get('licenseType'));
+      const contentType = String(req.headers['content-type'] || 'application/octet-stream').trim() || 'application/octet-stream';
+      const isDownloadable = String(requestUrl.searchParams.get('isDownloadable') || 'true').toLowerCase() !== 'false';
+      const romSha256 = String(requestUrl.searchParams.get('romSha256') || '').trim();
+
+      if (!gameId || !filename) {
+        return res.status(400).json({ error: 'x-game-id and x-filename are required' });
+      }
+
+      const body = req.body;
+      if (!body || !(body instanceof Buffer) || body.length === 0) {
+        return res.status(400).json({ error: 'ROM file body is empty' });
+      }
+
+      const gameRes = await p.query<{ id: string; title: string }>(
+        `SELECT id, title
+         FROM games
+         WHERE id = $1
+         LIMIT 1`,
+        [gameId]
+      );
+
+      if (gameRes.rows.length === 0) {
+        return res.status(404).json({ error: 'Game not found' });
+      }
+
+      const bucket = getBucketName();
+      if (!bucket) {
+        return res.status(500).json({ error: 'S3_BUCKET is not configured' });
+      }
+
+      const storageKey = `roms/${gameId}/${sanitizeFilename(filename)}`;
+      await getS3Client().send(new PutObjectCommand({
+        Bucket: bucket,
+        Key: storageKey,
+        Body: body,
+        ContentType: contentType,
+      }));
+
+      const updateRes = await p.query(
+        `UPDATE games
+         SET rom_storage_key = $1,
+             rom_filename = $2,
+             rom_size_bytes = $3,
+             rom_sha256 = $4,
+             license_type = LEFT($5, 40),
+             is_downloadable = $6
+         WHERE id = $7
+         RETURNING id, title, rom_storage_key, rom_filename, is_downloadable`,
+        [storageKey, filename, body.length, romSha256 || null, licenseType, isDownloadable, gameId]
+      );
+
+      return res.json({
+        game: updateRes.rows[0],
+      });
+    } catch (err) {
+      console.error('Failed to upload ROM through admin proxy:', err);
+      return res.status(500).json({ error: 'Failed to upload ROM' });
+    }
+  });
+
+  app.post('/api/game-download-url', async (req, res) => {
+    const p = getPool();
+    if (!p) return res.status(500).json({ error: 'Database not configured' });
+
+    if (!requireRomAdminKey(req)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+      const { gameId, userId, expiresInSeconds } = req.body ?? {};
+      if (!gameId) {
+        return res.status(400).json({ error: 'gameId is required' });
+      }
+
+      const gameRes = await p.query<GameRow>(
+        `SELECT id, title, rom_storage_key, rom_filename, is_downloadable
+         FROM games
+         WHERE id = $1
+         LIMIT 1`,
+        [String(gameId)]
+      );
+
+      if (gameRes.rows.length === 0) {
+        return res.status(404).json({ error: 'Game not found' });
+      }
+
+      const game = gameRes.rows[0];
+      if (!game.is_downloadable || !game.rom_storage_key) {
+        return res.status(400).json({ error: 'This game is not downloadable' });
+      }
+
+      const bucket = getBucketName();
+      if (!bucket) {
+        return res.status(500).json({ error: 'S3_BUCKET is not configured' });
+      }
+
+      const signedUrl = await getSignedUrl(
+        getS3Client(),
+        new GetObjectCommand({
+          Bucket: bucket,
+          Key: game.rom_storage_key,
+          ResponseContentDisposition: `attachment; filename="${game.rom_filename || `${game.title}.zip`}"`,
+        }),
+        { expiresIn: Math.min(Math.max(Number(expiresInSeconds) || 60, 30), 300) }
+      );
+
+      return res.json({
+        gameId: game.id,
+        title: game.title,
+        signedUrl,
+        expiresInSeconds: Math.min(Math.max(Number(expiresInSeconds) || 60, 30), 300),
+        userId: userId || null,
+      });
+    } catch (err) {
+      console.error('Failed to generate ROM download URL:', err);
+      return res.status(500).json({ error: 'Failed to create signed download URL' });
     }
   });
 

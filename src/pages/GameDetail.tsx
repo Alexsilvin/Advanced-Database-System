@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ChefHat as CPU, Monitor, HardDrive, Cpu, Download, ArrowLeft, Star, ShieldCheck, Zap, ShoppingCart } from 'lucide-react';
-import { Game } from '../types';
+import { Game, GameId } from '../types';
 
 interface GameDetailProps {
     game: Game | null;
     owned: boolean;
     inBucket: boolean;
     onBack: () => void;
-    onAcquire: (gameId: number) => void;
-    onAddToBucket: (gameId: number) => void;
+    onAcquire: (gameId: GameId) => void;
+    onAddToBucket: (gameId: GameId) => void;
 }
 
 const SpecItem = ({ icon: Icon, label, value }: { icon: any, label: string, value: string }) => (

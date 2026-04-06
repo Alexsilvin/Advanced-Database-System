@@ -149,6 +149,10 @@ Registers ROM file metadata for an existing game after uploading the binary to o
 }
 ```
 
+### Notes
+- `licenseType` is capped at 40 characters in the current database schema.
+- Use short values such as `licensed`, `unknown`, or `fan_patch`.
+
 ### Response (200)
 ```json
 {
@@ -195,6 +199,11 @@ The admin upload page in the frontend does the following:
 1. Requests `/api/rom-upload-url`.
 2. Uploads the selected file directly to Filebase with the signed PUT URL.
 3. Calls `/api/register-rom` to save the storage key and metadata.
+
+### Upload Validation Notes
+- The upload form limits `licenseType` to 40 characters.
+- The server and Netlify registration paths clamp `licenseType` to match the database column.
+- If an upload fails, check the server console for the exact database or storage error.
 
 ## 8. Initialization Behavior (Not an endpoint)
 On server startup:

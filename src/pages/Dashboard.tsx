@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Gamepad2, Users, ShoppingCart, Zap, TrendingUp, Crown, Clock, Download } from 'lucide-react';
-import { Game, TabType } from '../types';
+import { Game, GameId, TabType } from '../types';
 import { formatPrice } from '../utils';
 
 interface DashboardProps {
@@ -9,7 +9,7 @@ interface DashboardProps {
   libraryCount: number;
   bucketCount: number;
   games: Game[];
-  library: number[];
+  library: GameId[];
   onTabChange: (tab: TabType) => void;
 }
 

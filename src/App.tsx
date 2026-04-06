@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AuthSessionResponse, Game, TabType } from './types';
+import { AuthSessionResponse, Game, GameId, TabType } from './types';
 import { fetchCurrentUser, fetchGames, loginUser, logoutUser, signupUser } from './services/api';
 import { useGlitchEffect } from './hooks/useGlitchEffect';
 import Header from './components/layout/Header';
@@ -59,8 +59,8 @@ export default function App() {
     return stored === 'game-detail' ? 'store' : stored;
   });
   const [games, setGames] = useState<Game[]>([]);
-  const [library, setLibrary] = useState<number[]>(() => readStorage<number[]>(LS_KEYS.library, []));
-  const [bucket, setBucket] = useState<number[]>(() => readStorage<number[]>(LS_KEYS.bucket, []));
+  const [library, setLibrary] = useState<GameId[]>(() => readStorage<Array<string | number>>(LS_KEYS.library, []).map((id) => String(id)));
+  const [bucket, setBucket] = useState<GameId[]>(() => readStorage<Array<string | number>>(LS_KEYS.bucket, []).map((id) => String(id)));
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [loading] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
@@ -69,14 +69,16 @@ export default function App() {
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const isGlitching = useGlitchEffect();
 
-  const applySessionUser = (sessionUser: AuthSessionResponse | null) => {
+  const applySessionUser = (sessionUser: AuthSessionResponse | null, preserveNavigation = false) => {
     if (sessionUser) {
       setUsername(sessionUser.username);
       setUserRole(sessionUser.role);
       setIsLoggedIn(true);
       setCurrentView('app');
-      setActiveTab('store');
-      setShowDashboardOnce(sessionUser.role === 'admin');
+      if (!preserveNavigation) {
+        setActiveTab(sessionUser.role === 'admin' ? 'admin' : 'store');
+        setShowDashboardOnce(sessionUser.role === 'admin');
+      }
       return;
     }
 
@@ -119,12 +121,16 @@ export default function App() {
 
   useEffect(() => {
     const resyncSession = () => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+
       void (async () => {
         try {
           const sessionUser = await fetchCurrentUser();
-          applySessionUser(sessionUser);
+          applySessionUser(sessionUser, true);
         } catch {
-          applySessionUser(null);
+          // Ignore transient network errors during background resync.
         }
       })();
     };
@@ -182,6 +188,7 @@ export default function App() {
       }
 
       const key = event.key.toLowerCase();
+      if (key === 'a' && userRole === 'admin') setActiveTab('admin');
       if (key === 's') setActiveTab('store');
       if (key === 'l') setActiveTab('library');
       if (key === 'f') setActiveTab('friends');
@@ -243,7 +250,7 @@ export default function App() {
     })();
   };
 
-  const addToLibrary = (gameId: number) => {
+  const addToLibrary = (gameId: GameId) => {
     const gameName = games.find((g) => g.id === gameId)?.title ?? 'Game';
     if (!library.includes(gameId)) {
       setLibrary((prev) => [...prev, gameId]);
@@ -254,7 +261,7 @@ export default function App() {
     setBucket((prev) => prev.filter((id) => id !== gameId));
   };
 
-  const addToBucket = (gameId: number) => {
+  const addToBucket = (gameId: GameId) => {
     const gameName = games.find((g) => g.id === gameId)?.title ?? 'Game';
     if (library.includes(gameId)) {
       notify(`${gameName} is already owned.`, 'info');
@@ -272,7 +279,7 @@ export default function App() {
     }
   };
 
-  const removeFromBucket = (gameId: number) => {
+  const removeFromBucket = (gameId: GameId) => {
     const gameName = games.find((g) => g.id === gameId)?.title ?? 'Game';
 
     setBucket((prev) => {
@@ -369,7 +376,7 @@ export default function App() {
             setUserRole(sessionUser.role);
             setIsLoggedIn(true);
             setCurrentView('app');
-            setActiveTab('store');
+            setActiveTab(sessionUser.role === 'admin' ? 'admin' : 'store');
             setShowDashboardOnce(sessionUser.role === 'admin');
             notify(sessionUser.role === 'admin' ? 'Admin access granted.' : 'Connected to NEON-GRID.', 'success');
             loadGames();
@@ -439,6 +446,28 @@ export default function App() {
         />
 
         <div className="flex-1 py-8 px-6 min-w-0">
+          {activeTab === 'admin' && userRole === 'admin' && (
+            <AdminDashboard
+              username={username}
+              onTabChange={(tab) => {
+                setActiveTab(tab);
+                if (tab !== 'admin') {
+                  setShowDashboardOnce(false);
+                }
+              }}
+              onOpenUpload={() => setActiveTab('upload')}
+            />
+          )}
+
+          {activeTab === 'admin' && userRole !== 'admin' && (
+            <div className="page-enter rounded-3xl border border-white/10 bg-white/5 p-8 text-center space-y-3">
+              <p className="text-xs font-mono tracking-[0.35em] text-neon-magenta uppercase">Access denied</p>
+              <h3 className="text-2xl font-black italic tracking-tighter">Admin only</h3>
+              <p className="text-sm text-white/60 font-mono">This tab is only visible to admin accounts.</p>
+              <button onClick={() => setActiveTab('store')} className="px-5 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest">Back to store</button>
+            </div>
+          )}
+
           {showDashboardOnce && activeTab === 'store' && userRole === 'admin' && (
               <AdminDashboard
                 username={username}

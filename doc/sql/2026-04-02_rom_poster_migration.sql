@@ -15,6 +15,17 @@ ALTER TABLE games
   ADD COLUMN IF NOT EXISTS license_type VARCHAR(40) NOT NULL DEFAULT 'unknown',
   ADD COLUMN IF NOT EXISTS is_downloadable BOOLEAN NOT NULL DEFAULT FALSE;
 
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'games' AND column_name = 'license_type' AND data_type = 'character varying'
+  ) THEN
+    ALTER TABLE games ALTER COLUMN license_type TYPE TEXT USING license_type::text;
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_games_downloadable ON games(is_downloadable);
 CREATE INDEX IF NOT EXISTS idx_games_poster_source ON games(poster_source);
 

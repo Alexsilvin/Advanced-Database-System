@@ -85,6 +85,11 @@ npm run preview
 - Make sure the Filebase bucket exists and the bucket name matches `S3_BUCKET` or `FILEBASE_BUCKET`
 - If the signed upload works but registration fails, verify `DATABASE_URL` and the target game row
 
+### 6.5 Upload fails with a license length error
+- Keep `licenseType` under 40 characters
+- Use short values like `licensed`, `unknown`, or `fan_patch`
+- If the database still has the older varchar limit, rerun the ROM/poster migration before trying again
+
 ## 7. Operational Checklist (Before Demo)
 
 1. `.env` configured

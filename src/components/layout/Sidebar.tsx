@@ -1,5 +1,5 @@
 import React from 'react';
-import { Gamepad2, Users, ShoppingBag, LogOut, UploadCloud } from 'lucide-react';
+import { Gamepad2, Users, ShoppingBag, LogOut, UploadCloud, ShieldCheck } from 'lucide-react';
 import { TabType } from '../../types';
 
 interface SidebarProps {
@@ -13,6 +13,14 @@ interface SidebarProps {
 export default function Sidebar({ activeTab, onTabChange, onLogout, onOpenUpload, canUpload }: SidebarProps) {
   return (
     <nav className="hidden lg:flex flex-col gap-2 w-64 shrink-0 py-8 px-4 border-r border-white/5 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
+      {canUpload && (
+        <NavButton 
+          active={activeTab === 'admin'} 
+          onClick={() => onTabChange('admin')}
+          icon={<ShieldCheck className="w-5 h-5" />}
+          label="ADMIN HUB"
+        />
+      )}
       <NavButton 
         active={activeTab === 'store'} 
         onClick={() => onTabChange('store')}

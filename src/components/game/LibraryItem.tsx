@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Download, Play } from 'lucide-react';
-import { Game } from '../../types';
+import { Game, GameId } from '../../types';
 
 interface LibraryItemProps {
   game: Game;
   viewMode?: 'grid' | 'list';
-  onInstalled?: (id: number) => void;
+  onInstalled?: (id: GameId) => void;
 }
 
 export default function LibraryItem({ game, viewMode = 'grid', onInstalled }: LibraryItemProps) {
@@ -14,7 +14,7 @@ export default function LibraryItem({ game, viewMode = 'grid', onInstalled }: Li
   const [isInstalled, setIsInstalled] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
 
-  const mockHours = (game.id * 173 + 29) % 500;
+  const mockHours = Array.from(String(game.id)).reduce((acc, char) => acc + char.charCodeAt(0), 0) % 500;
 
   const startDownload = () => {
     setIsDownloading(true);

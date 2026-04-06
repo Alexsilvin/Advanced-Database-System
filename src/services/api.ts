@@ -3,10 +3,10 @@ import { AdminOverviewResponse, AuthSessionResponse, DownloadUrlResponse, Game, 
 function normalizeGame(raw: unknown): Game | null {
   if (!raw || typeof raw !== 'object') return null;
   const row = raw as Record<string, unknown>;
-  const id = Number(row.id);
+  const id = row.id != null ? String(row.id) : '';
   const price = Number(row.price);
 
-  if (!Number.isFinite(id)) return null;
+  if (!id) return null;
 
   return {
     id,
@@ -26,15 +26,30 @@ function normalizeGame(raw: unknown): Game | null {
   };
 }
 
+async function readJsonResponse<T>(res: Response, fallbackError: string): Promise<T> {
+  const text = await res.text();
+  if (!text) {
+    throw new Error(fallbackError);
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(fallbackError);
+  }
+}
+
 export const fetchGames = async (): Promise<Game[]> => {
   try {
     const res = await fetch('/api/games');
-    const data = await res.json();
+    const data = await readJsonResponse<unknown>(res, 'FAILED_TO_FETCH_GAMES');
     if (Array.isArray(data)) {
       return data.map(normalizeGame).filter((game): game is Game => game !== null);
     } else {
       console.error('API returned non-array data:', data);
-      if (data.error) throw new Error(data.error);
+      if (data && typeof data === 'object' && 'error' in data && typeof (data as { error?: unknown }).error === 'string') {
+        throw new Error((data as { error: string }).error);
+      }
       return [];
     }
   } catch (err) {
@@ -49,7 +64,7 @@ export const fetchCurrentUser = async (): Promise<AuthSessionResponse | null> =>
     return null;
   }
 
-  const data = await res.json();
+  const data = await readJsonResponse<{ error?: string } & AuthSessionResponse>(res, 'FAILED_TO_FETCH_SESSION');
   if (!res.ok) {
     throw new Error(data.error || 'FAILED_TO_FETCH_SESSION');
   }
@@ -59,7 +74,7 @@ export const fetchCurrentUser = async (): Promise<AuthSessionResponse | null> =>
 
 export const fetchAdminOverview = async (): Promise<AdminOverviewResponse> => {
   const res = await fetch('/api/admin/overview', { credentials: 'include' });
-  const data = await res.json();
+  const data = await readJsonResponse<{ error?: string } & AdminOverviewResponse>(res, 'FAILED_TO_FETCH_ADMIN_OVERVIEW');
 
   if (!res.ok) {
     throw new Error(data.error || 'FAILED_TO_FETCH_ADMIN_OVERVIEW');
@@ -86,7 +101,7 @@ export const signupUser = async (payload: {
     credentials: 'include',
   });
 
-  const data = await res.json();
+  const data = await readJsonResponse<{ error?: string } & AuthSessionResponse>(res, 'FAILED_TO_SIGN_UP');
   if (!res.ok) {
     throw new Error(data.error || 'FAILED_TO_SIGN_UP');
   }
@@ -107,7 +122,7 @@ export const loginUser = async (payload: {
     credentials: 'include',
   });
 
-  const data = await res.json();
+  const data = await readJsonResponse<{ error?: string } & AuthSessionResponse>(res, 'FAILED_TO_LOG_IN');
   if (!res.ok) {
     throw new Error(data.error || 'FAILED_TO_LOG_IN');
   }
@@ -141,7 +156,7 @@ export const requestGameDownloadUrl = async (payload: {
     }),
   });
 
-  const data = await res.json();
+  const data = await readJsonResponse<{ error?: string } & DownloadUrlResponse>(res, 'FAILED_TO_CREATE_DOWNLOAD_URL');
   if (!res.ok) {
     throw new Error(data.error || 'FAILED_TO_CREATE_DOWNLOAD_URL');
   }
@@ -170,7 +185,7 @@ export const requestRomUploadUrl = async (payload: {
     }),
   });
 
-  const data = await res.json();
+  const data = await readJsonResponse<{ error?: string } & RomUploadUrlResponse>(res, 'FAILED_TO_CREATE_UPLOAD_URL');
   if (!res.ok) {
     throw new Error(data.error || 'FAILED_TO_CREATE_UPLOAD_URL');
   }
@@ -205,9 +220,43 @@ export const registerRom = async (payload: {
     }),
   });
 
-  const data = await res.json();
+  const data = await readJsonResponse<{ error?: string } & RegisterRomResponse>(res, 'FAILED_TO_REGISTER_ROM');
   if (!res.ok) {
     throw new Error(data.error || 'FAILED_TO_REGISTER_ROM');
+  }
+
+  return data as RegisterRomResponse;
+};
+
+export const uploadRomToServer = async (payload: {
+  gameId: string;
+  filename: string;
+  file: File;
+  licenseType?: string;
+  isDownloadable?: boolean;
+  romSha256?: string;
+}): Promise<RegisterRomResponse> => {
+  const uploadUrl = new URL('/api/admin/upload-rom', window.location.origin);
+  uploadUrl.searchParams.set('gameId', payload.gameId);
+  uploadUrl.searchParams.set('filename', payload.filename);
+  uploadUrl.searchParams.set('licenseType', payload.licenseType || 'unknown');
+  uploadUrl.searchParams.set('isDownloadable', String(payload.isDownloadable ?? true));
+  if (payload.romSha256) {
+    uploadUrl.searchParams.set('romSha256', payload.romSha256);
+  }
+
+  const res = await fetch(uploadUrl.toString(), {
+    method: 'POST',
+    headers: {
+      'Content-Type': payload.file.type || 'application/octet-stream',
+    },
+    body: await payload.file.arrayBuffer(),
+    credentials: 'include',
+  });
+
+  const data = await readJsonResponse<{ error?: string } & RegisterRomResponse>(res, 'FAILED_TO_UPLOAD_ROM');
+  if (!res.ok) {
+    throw new Error(data.error || 'FAILED_TO_UPLOAD_ROM');
   }
 
   return data as RegisterRomResponse;
@@ -232,7 +281,7 @@ export const runPosterEnrichment = async (payload?: {
     }),
   });
 
-  const data = await res.json();
+  const data = await readJsonResponse<{ error?: string } & PosterEnrichmentResult>(res, 'POSTER_ENRICHMENT_FAILED');
   if (!res.ok) {
     throw new Error(data.error || 'POSTER_ENRICHMENT_FAILED');
   }

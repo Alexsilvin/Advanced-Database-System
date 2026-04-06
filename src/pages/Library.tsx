@@ -4,14 +4,14 @@ import {
   Terminal, LayoutGrid, List, ShieldCheck, Clock,
   Heart, Download, Server, Lock, User
 } from 'lucide-react';
-import { Game, TabType, Friend } from '../types';
+import { Game, GameId, TabType, Friend } from '../types';
 import LibraryItem from '../components/game/LibraryItem';
 
 const LIBRARY_PREFS_KEY = 'neon-grid:library-prefs';
 
 interface LibraryProps {
   games: Game[];
-  library: number[];
+  library: GameId[];
   onTabChange: (tab: TabType) => void;
 }
 
@@ -64,7 +64,7 @@ export default function Library({ games, library, onTabChange }: LibraryProps) {
       return 'recent';
     }
   });
-  const [installedGames, setInstalledGames] = useState<number[]>([]);
+  const [installedGames, setInstalledGames] = useState<GameId[]>([]);
 
   const persistPrefs = (next: { activeFilter?: FilterType; viewMode?: 'grid' | 'list'; sortOrder?: SortType }) => {
     const merged = {
@@ -87,7 +87,7 @@ export default function Library({ games, library, onTabChange }: LibraryProps) {
     sortOrder === 'name' ? a.title.localeCompare(b.title) : 0
   );
 
-  const handleInstalled = (id: number) =>
+  const handleInstalled = (id: GameId) =>
     setInstalledGames(prev => (prev.includes(id) ? prev : [...prev, id]));
 
   return (

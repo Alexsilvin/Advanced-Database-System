@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Terminal, ChevronRight } from 'lucide-react';
-import { Game, TabType } from '../types';
+import { Game, GameId, TabType } from '../types';
 import GameCard from '../components/game/GameCard';
 import FeaturedCarousel from '../components/game/FeaturedCarousel';
 
@@ -9,10 +9,10 @@ const STORE_PREFS_KEY = 'neon-grid:store-prefs';
 
 interface StoreProps {
   games: Game[];
-  library: number[];
+  library: GameId[];
   filteredGames: Game[];
   dbError: string | null;
-  onAddToLibrary: (gameId: number) => void;
+  onAddToLibrary: (gameId: GameId) => void;
   onSelectGame: (game: Game) => void;
   onTabChange: (tab: TabType) => void;
 }

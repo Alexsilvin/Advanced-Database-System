@@ -26,6 +26,11 @@ function requireAdminKey(req: Request): boolean {
   return headerKey === configuredKey;
 }
 
+function normalizeLicenseType(value: unknown): string {
+  const text = typeof value === "string" ? value.trim() : "unknown";
+  return (text.slice(0, 40) || "unknown");
+}
+
 export default async (req: Request, _context: Context) => {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
@@ -61,7 +66,7 @@ export default async (req: Request, _context: Context) => {
            rom_filename = $2,
            rom_size_bytes = $3,
            rom_sha256 = $4,
-           license_type = $5,
+           license_type = LEFT($5, 40),
            is_downloadable = $6
        WHERE id = $7
        RETURNING id, title, rom_storage_key, rom_filename, is_downloadable`,
@@ -70,7 +75,7 @@ export default async (req: Request, _context: Context) => {
         body.romFilename || null,
         body.romSizeBytes || null,
         body.romSha256 || null,
-        body.licenseType || "unknown",
+        normalizeLicenseType(body.licenseType),
         body.isDownloadable ?? true,
         body.gameId,
       ]

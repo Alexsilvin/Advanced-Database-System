@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowLeft, CheckCircle2, RefreshCw, ShieldCheck, UploadCloud } from 'lucide-react';
 import { Game } from '../types';
-import { registerRom, requestRomUploadUrl } from '../services/api';
+import { uploadRomToServer } from '../services/api';
 
 interface AdminUploadProps {
   games: Game[];
@@ -33,6 +33,18 @@ export default function AdminUpload({ games, onBack }: AdminUploadProps) {
     [games, selectedGameId],
   );
 
+  useEffect(() => {
+    // Games arrive asynchronously; ensure one is selected once the list is available.
+    if (!selectedGameId && games.length > 0) {
+      setSelectedGameId(String(games[0].id));
+      return;
+    }
+
+    if (selectedGameId && !games.some((game) => String(game.id) === selectedGameId)) {
+      setSelectedGameId(games[0]?.id ? String(games[0].id) : '');
+    }
+  }, [games, selectedGameId]);
+
   const handleUpload = async () => {
     if (!selectedGameId) {
       setStatus({ kind: 'error', message: 'Pick a game first.' });
@@ -45,42 +57,16 @@ export default function AdminUpload({ games, onBack }: AdminUploadProps) {
     }
 
     try {
-      setStatus({ kind: 'working', message: 'Creating upload URL...' });
-      setProgress(10);
+      setStatus({ kind: 'working', message: 'Uploading ROM to Filebase...' });
+      setProgress(20);
 
-      const uploadInfo = await requestRomUploadUrl({
+      await uploadRomToServer({
         gameId: selectedGameId,
         filename: file.name,
-        contentType: file.type || 'application/octet-stream',
-        expiresInSeconds: 300,
-      });
-
-      setStatus({ kind: 'working', message: 'Uploading ROM to Filebase...' });
-      setProgress(35);
-
-      const uploadRes = await fetch(uploadInfo.uploadUrl, {
-        method: 'PUT',
-        headers: file.type ? { 'Content-Type': file.type } : {},
-        body: file,
-      });
-
-      if (!uploadRes.ok) {
-        throw new Error('Filebase upload failed.');
-      }
-
-      setStatus({ kind: 'working', message: 'Registering ROM metadata...' });
-      setProgress(80);
-
-      const romSha256 = sha256.trim() || (await computeSha256(file));
-
-      await registerRom({
-        gameId: selectedGameId,
-        romStorageKey: uploadInfo.storageKey,
-        romFilename: file.name,
-        romSizeBytes: file.size,
-        romSha256,
+        file,
         licenseType,
         isDownloadable,
+        romSha256: sha256.trim() || (await computeSha256(file)),
       });
 
       setProgress(100);
@@ -137,6 +123,7 @@ export default function AdminUpload({ games, onBack }: AdminUploadProps) {
               <input
                 value={licenseType}
                 onChange={(event) => setLicenseType(event.target.value)}
+                maxLength={40}
                 className="w-full rounded-xl bg-black/70 border border-white/10 px-4 py-3 text-white outline-none focus:border-neon-cyan/40"
                 placeholder="licensed"
               />

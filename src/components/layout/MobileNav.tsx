@@ -1,5 +1,5 @@
 import React from 'react';
-import { Gamepad2, Users, ShoppingBag, ShoppingCart, Bell, UploadCloud } from 'lucide-react';
+import { Gamepad2, Users, ShoppingBag, ShoppingCart, Bell, UploadCloud, ShieldCheck } from 'lucide-react';
 import { TabType } from '../../types';
 
 interface MobileNavProps {
@@ -13,6 +13,16 @@ interface MobileNavProps {
 export default function MobileNav({ activeTab, onTabChange, bucketCount, canUpload, onOpenUpload }: MobileNavProps) {
   return (
     <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-lg border-t border-white/10 px-6 py-3 flex justify-between items-center z-50">
+      {canUpload && (
+        <button
+          onClick={() => onTabChange('admin')}
+          className={activeTab === 'admin' ? 'text-neon-cyan' : 'text-white/40'}
+          aria-label="Open admin hub"
+          title="Admin"
+        >
+          <ShieldCheck className="w-6 h-6" />
+        </button>
+      )}
       <button
         onClick={() => onTabChange('store')}
         className={activeTab === 'store' ? 'text-neon-cyan' : 'text-white/40'}

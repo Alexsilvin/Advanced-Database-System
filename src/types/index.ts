@@ -1,5 +1,7 @@
+export type GameId = string;
+
 export interface Game {
-  id: number;
+  id: GameId;
   title: string;
   price: number;
   description: string;
@@ -80,7 +82,7 @@ export interface AdminOverviewResponse {
     email?: string | null;
   }>;
   recentGames: Array<{
-    id: number;
+    id: GameId;
     title: string;
     category: string;
     price: number;
@@ -95,7 +97,7 @@ export interface PosterEnrichmentResult {
   minConfidence: number;
 }
 
-export type TabType = 'store' | 'library' | 'friends' | 'bucket' | 'notifications' | 'game-detail' | 'profile' | 'upload';
+export type TabType = 'admin' | 'store' | 'library' | 'friends' | 'bucket' | 'notifications' | 'game-detail' | 'profile' | 'upload';
 
 export type FriendStatus = 'online' | 'offline' | 'playing';
 

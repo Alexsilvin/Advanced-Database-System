@@ -6,30 +6,29 @@ interface LibraryItemProps {
   game: Game;
   viewMode?: 'grid' | 'list';
   onInstalled?: (id: GameId) => void;
+  onDownload: (id: GameId) => Promise<void>;
 }
 
-export default function LibraryItem({ game, viewMode = 'grid', onInstalled }: LibraryItemProps) {
+export default function LibraryItem({ game, viewMode = 'grid', onInstalled, onDownload }: LibraryItemProps) {
   const [isDownloading, setIsDownloading] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
 
   const mockHours = Array.from(String(game.id)).reduce((acc, char) => acc + char.charCodeAt(0), 0) % 500;
 
-  const startDownload = () => {
+  const startDownload = async () => {
+    if (isDownloading || isInstalled) return;
+
     setIsDownloading(true);
-    let p = 0;
-    const interval = setInterval(() => {
-      p += Math.random() * 12;
-      if (p >= 100) {
-        p = 100;
-        clearInterval(interval);
-        setIsDownloading(false);
-        setIsInstalled(true);
-        onInstalled?.(game.id);
-      }
-      setProgress(p);
-    }, 300);
+
+    try {
+      await onDownload(game.id);
+      setIsInstalled(true);
+      onInstalled?.(game.id);
+      setIsDownloading(false);
+    } catch {
+      setIsDownloading(false);
+    }
   };
 
   const playGame = () => {
@@ -60,12 +59,7 @@ export default function LibraryItem({ game, viewMode = 'grid', onInstalled }: Li
           <h3 className="font-black italic tracking-tighter truncate">{game.title}</h3>
           <p className="text-[10px] font-mono text-white/40 uppercase">{mockHours} HRS PLAYED</p>
           {isDownloading && (
-            <progress
-              className="download-progress mt-1.5 w-full h-1"
-              value={Math.floor(progress)}
-              max={100}
-              aria-label={`Install progress for ${game.title}`}
-            />
+            <p className="text-[10px] font-mono text-neon-cyan/80 mt-1.5 uppercase tracking-wider">Preparing secure link...</p>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -80,9 +74,7 @@ export default function LibraryItem({ game, viewMode = 'grid', onInstalled }: Li
             </button>
           )}
           {isDownloading && (
-            <span className="text-[10px] font-mono text-neon-cyan min-w-[3ch] text-right">
-              {Math.floor(progress)}%
-            </span>
+            <span className="text-[10px] font-mono text-neon-cyan min-w-[3ch] text-right">...</span>
           )}
           {isInstalled && (
             <button
@@ -134,15 +126,12 @@ export default function LibraryItem({ game, viewMode = 'grid', onInstalled }: Li
         {isDownloading ? (
           <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-3 p-4">
             <p className="text-[11px] font-mono text-neon-cyan animate-pulse tracking-widest uppercase">
-              INSTALLING_DATA...
+              PREPARING_SECURE_LINK...
             </p>
-            <progress
-              className="download-progress w-full h-1.5"
-              value={Math.floor(progress)}
-              max={100}
-              aria-label={`Install progress for ${game.title}`}
-            />
-            <span className="text-2xl font-black font-mono text-neon-cyan">{Math.floor(progress)}%</span>
+            <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+              <div className="h-full w-1/3 bg-neon-cyan animate-pulse" />
+            </div>
+            <span className="text-xs font-black font-mono text-neon-cyan">AUTHENTICATING</span>
           </div>
         ) : (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">

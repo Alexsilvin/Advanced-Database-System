@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthSessionResponse, Game, GameId, TabType } from './types';
-import { fetchCurrentUser, fetchGames, loginUser, logoutUser, signupUser } from './services/api';
+import { fetchCurrentUser, fetchGames, loginUser, logoutUser, requestGameDownloadUrl, signupUser } from './services/api';
 import { useGlitchEffect } from './hooks/useGlitchEffect';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
@@ -312,6 +312,27 @@ export default function App() {
     ? games.filter(g => g.title.toLowerCase().includes(searchTerm.toLowerCase()))
     : [];
 
+  const handleDownloadGame = async (gameId: GameId) => {
+    const targetGame = games.find((game) => game.id === gameId);
+    if (!targetGame) {
+      notify('Selected game was not found.', 'error');
+      return;
+    }
+
+    try {
+      const download = await requestGameDownloadUrl({
+        gameId,
+        expiresInSeconds: 120,
+      });
+
+      window.open(download.signedUrl, '_blank', 'noopener,noreferrer');
+      notify(`Download link ready for ${targetGame.title}.`, 'success');
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Failed to create download link.', 'error');
+      throw error;
+    }
+  };
+
   // Welcome Page
   if (currentView === 'welcome') {
     return (
@@ -516,6 +537,7 @@ export default function App() {
                 onBack={() => setActiveTab('store')}
                 onAcquire={addToLibrary}
                 onAddToBucket={addToBucket}
+                onDownload={handleDownloadGame}
               />
             )}
 
@@ -524,6 +546,7 @@ export default function App() {
                 games={games}
                 library={library}
                 onTabChange={setActiveTab}
+                onDownload={handleDownloadGame}
               />
             )}
 

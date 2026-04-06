@@ -149,6 +149,7 @@ export const requestGameDownloadUrl = async (payload: {
       'Content-Type': 'application/json',
       ...(payload.adminKey ? { 'x-admin-key': payload.adminKey } : {}),
     },
+    credentials: 'include',
     body: JSON.stringify({
       gameId: payload.gameId,
       userId: payload.userId,

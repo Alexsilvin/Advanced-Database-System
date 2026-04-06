@@ -723,12 +723,13 @@ async function startServer() {
     const p = getPool();
     if (!p) return res.status(500).json({ error: 'Database not configured' });
 
-    if (!requireRomAdminKey(req)) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
     try {
-      const { gameId, userId, expiresInSeconds } = req.body ?? {};
+      const sessionUser = await getSessionUser(req);
+      if (!sessionUser) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const { gameId, expiresInSeconds } = req.body ?? {};
       if (!gameId) {
         return res.status(400).json({ error: 'gameId is required' });
       }
@@ -748,6 +749,21 @@ async function startServer() {
       const game = gameRes.rows[0];
       if (!game.is_downloadable || !game.rom_storage_key) {
         return res.status(400).json({ error: 'This game is not downloadable' });
+      }
+
+      const requireLibrary = process.env.DOWNLOAD_REQUIRE_LIBRARY === 'true';
+      if (requireLibrary) {
+        const entitlementRes = await p.query(
+          `SELECT 1
+           FROM library_items
+           WHERE user_id = $1 AND game_id = $2
+           LIMIT 1`,
+          [sessionUser.id, String(gameId)]
+        );
+
+        if (entitlementRes.rows.length === 0) {
+          return res.status(403).json({ error: 'User does not own this game' });
+        }
       }
 
       const bucket = getBucketName();
@@ -770,7 +786,7 @@ async function startServer() {
         title: game.title,
         signedUrl,
         expiresInSeconds: Math.min(Math.max(Number(expiresInSeconds) || 60, 30), 300),
-        userId: userId || null,
+        userId: sessionUser.id,
       });
     } catch (err) {
       console.error('Failed to generate ROM download URL:', err);

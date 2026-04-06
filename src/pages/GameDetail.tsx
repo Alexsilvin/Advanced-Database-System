@@ -10,6 +10,7 @@ interface GameDetailProps {
     onBack: () => void;
     onAcquire: (gameId: GameId) => void;
     onAddToBucket: (gameId: GameId) => void;
+    onDownload: (gameId: GameId) => Promise<void>;
 }
 
 const SpecItem = ({ icon: Icon, label, value }: { icon: any, label: string, value: string }) => (
@@ -24,15 +25,19 @@ const SpecItem = ({ icon: Icon, label, value }: { icon: any, label: string, valu
     </div>
 );
 
-export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, onAddToBucket }: GameDetailProps) {
+export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, onAddToBucket, onDownload }: GameDetailProps) {
     const [isInitializing, setIsInitializing] = useState(false);
 
     if (!game) return null;
 
-    const startDownload = () => {
+    const startDownload = async () => {
         if (isInitializing) return;
         setIsInitializing(true);
-        window.setTimeout(() => setIsInitializing(false), 1400);
+        try {
+            await onDownload(game.id);
+        } finally {
+            setIsInitializing(false);
+        }
     };
 
     return (
@@ -169,7 +174,7 @@ export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, o
                                 </>
                             ) : (
                                 <button
-                                    onClick={startDownload}
+                                    onClick={() => void startDownload()}
                                     disabled={isInitializing}
                                     className="w-full py-4 bg-green-500 text-black rounded-xl text-xs font-black tracking-widest flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)]"
                                 >

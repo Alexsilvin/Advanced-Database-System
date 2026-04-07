@@ -437,6 +437,7 @@ export default function App() {
         onTabChange={setActiveTab}
         notificationsCount={2}
         bucketCount={bucket.length}
+        username={username}
       />
 
       {userRole === 'admin' && currentView === 'app' && (

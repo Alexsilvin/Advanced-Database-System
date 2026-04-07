@@ -19,6 +19,11 @@ function normalizeGame(raw: unknown): Game | null {
     rating: row.rating ? String(row.rating) : undefined,
     is_downloadable: Boolean(row.is_downloadable),
     rom_filename: row.rom_filename ? String(row.rom_filename) : undefined,
+    rom_size_bytes: typeof row.rom_size_bytes === 'number'
+      ? row.rom_size_bytes
+      : typeof row.rom_size_bytes === 'string'
+      ? Number(row.rom_size_bytes)
+      : undefined,
     poster_source: row.poster_source ? String(row.poster_source) : undefined,
     poster_source_url: row.poster_source_url ? String(row.poster_source_url) : undefined,
     poster_confidence: typeof row.poster_confidence === 'number' ? row.poster_confidence : undefined,

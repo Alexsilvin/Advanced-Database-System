@@ -8,9 +8,10 @@ interface HeaderProps {
   onTabChange: (tab: TabType) => void;
   notificationsCount: number;
   bucketCount: number;
+  username?: string;
 }
 
-export default function Header({ searchTerm, onSearchChange, onTabChange, notificationsCount, bucketCount }: HeaderProps) {
+export default function Header({ searchTerm, onSearchChange, onTabChange, notificationsCount, bucketCount, username }: HeaderProps) {
   return (
     <header className="border-b border-neon-cyan/20 bg-black/80 backdrop-blur-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -68,7 +69,7 @@ export default function Header({ searchTerm, onSearchChange, onTabChange, notifi
             <div className="w-8 h-8 rounded-full bg-neon-magenta/20 border border-neon-magenta/40 flex items-center justify-center">
               <User className="w-4 h-4 text-neon-magenta" />
             </div>
-            <span className="text-sm font-mono hidden sm:block">SYLVESTRE_01</span>
+            <span className="text-sm font-mono hidden sm:block">{(username || 'PLAYER_01').toUpperCase()}</span>
           </button>
         </div>
       </div>

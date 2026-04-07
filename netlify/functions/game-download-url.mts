@@ -2,6 +2,7 @@ import type { Context } from "@netlify/functions";
 import pg from "pg";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { ensureAuthSchema, getSessionUserFromRequest } from "./_shared/auth.mts";
 
 const { Pool } = pg;
 
@@ -57,23 +58,9 @@ function getBucket(): string | null {
   return process.env.S3_BUCKET || process.env.FILEBASE_BUCKET || null;
 }
 
-function requireAdminKey(req: Request): boolean {
-  const configuredKey = process.env.ROM_ADMIN_KEY;
-  if (!configuredKey) {
-    return true;
-  }
-
-  const headerKey = req.headers.get("x-admin-key");
-  return headerKey === configuredKey;
-}
-
 export default async (req: Request, _context: Context) => {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
-  }
-
-  if (!requireAdminKey(req)) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const p = getPool();
@@ -82,9 +69,15 @@ export default async (req: Request, _context: Context) => {
   }
 
   try {
+    await ensureAuthSchema(p);
+
+    const sessionUser = await getSessionUserFromRequest(req, p);
+    if (!sessionUser) {
+      return Response.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
     const body = (await req.json()) as {
       gameId?: string;
-      userId?: string;
       expiresInSeconds?: number;
     };
 
@@ -114,16 +107,12 @@ export default async (req: Request, _context: Context) => {
 
     const requireLibrary = process.env.DOWNLOAD_REQUIRE_LIBRARY === "true";
     if (requireLibrary) {
-      if (!body.userId) {
-        return Response.json({ error: "userId is required for entitlement checks" }, { status: 400 });
-      }
-
       const entitlementRes = await p.query(
         `SELECT 1
          FROM library_items
          WHERE user_id = $1 AND game_id = $2
          LIMIT 1`,
-        [body.userId, gameId]
+        [sessionUser.id, gameId]
       );
 
       if (entitlementRes.rows.length === 0) {
@@ -148,6 +137,7 @@ export default async (req: Request, _context: Context) => {
     return Response.json({
       gameId: game.id,
       title: game.title,
+      userId: sessionUser.id,
       signedUrl,
       expiresInSeconds,
     });

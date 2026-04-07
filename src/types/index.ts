@@ -10,6 +10,7 @@ export interface Game {
   category: string;
   is_downloadable?: boolean;
   rom_filename?: string;
+  rom_size_bytes?: number;
   poster_source?: string;
   poster_source_url?: string;
   poster_confidence?: number;

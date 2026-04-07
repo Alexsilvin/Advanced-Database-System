@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { ChefHat as CPU, Monitor, HardDrive, Cpu, Download, ArrowLeft, Star, ShieldCheck, Zap, ShoppingCart } from 'lucide-react';
+import { ChefHat as CPU, Monitor, HardDrive, Cpu, Download, ArrowLeft, Star, ShieldCheck, Zap, ShoppingCart, Link as LinkIcon } from 'lucide-react';
 import { Game, GameId } from '../types';
 
 interface GameDetailProps {
@@ -29,6 +29,23 @@ export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, o
     const [isInitializing, setIsInitializing] = useState(false);
 
     if (!game) return null;
+
+    const romSizeBytes = typeof game.rom_size_bytes === 'number' && Number.isFinite(game.rom_size_bytes)
+        ? game.rom_size_bytes
+        : undefined;
+    const romSizeMb = romSizeBytes && romSizeBytes > 0
+        ? Math.max(1, Math.ceil(romSizeBytes / (1024 * 1024)))
+        : 500;
+
+    const minimumProtocols = {
+        os: 'Windows 7 (minimum)',
+        processor: 'Intel Core i3 4th Gen (minimum)',
+        memory: `${romSizeMb} MB RAM`,
+        graphics: 'Basic integrated graphics',
+        storage: '10 MB available space',
+    };
+
+    const optimalProtocols = { ...minimumProtocols };
 
     const startDownload = async () => {
         if (isInitializing) return;
@@ -114,11 +131,11 @@ export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, o
                             <div className="space-y-4">
                                 <p className="text-xs font-black text-white/20 italic ml-2 tracking-widest">MINIMUM_PROTOCOLS</p>
                                 <div className="space-y-3">
-                                    <SpecItem icon={Monitor} label="OS" value={game.minSpecs?.os || 'TBD'} />
-                                    <SpecItem icon={CPU} label="Processor" value={game.minSpecs?.processor || 'TBD'} />
-                                    <SpecItem icon={Cpu} label="Memory" value={game.minSpecs?.memory || 'TBD'} />
-                                    <SpecItem icon={Monitor} label="Graphics" value={game.minSpecs?.graphics || 'TBD'} />
-                                    <SpecItem icon={HardDrive} label="Storage" value={game.minSpecs?.storage || 'TBD'} />
+                                    <SpecItem icon={Monitor} label="OS" value={minimumProtocols.os} />
+                                    <SpecItem icon={CPU} label="Processor" value={minimumProtocols.processor} />
+                                    <SpecItem icon={Cpu} label="Memory" value={minimumProtocols.memory} />
+                                    <SpecItem icon={Monitor} label="Graphics" value={minimumProtocols.graphics} />
+                                    <SpecItem icon={HardDrive} label="Storage" value={minimumProtocols.storage} />
                                 </div>
                             </div>
 
@@ -126,12 +143,39 @@ export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, o
                             <div className="space-y-4">
                                 <p className="text-xs font-black text-neon-cyan/40 italic ml-2 tracking-widest">OPTIMAL_PROTOCOLS</p>
                                 <div className="space-y-3">
-                                    <SpecItem icon={Monitor} label="OS" value={game.recSpecs?.os || 'TBD'} />
-                                    <SpecItem icon={CPU} label="Processor" value={game.recSpecs?.processor || 'TBD'} />
-                                    <SpecItem icon={Cpu} label="Memory" value={game.recSpecs?.memory || 'TBD'} />
-                                    <SpecItem icon={Monitor} label="Graphics" value={game.recSpecs?.graphics || 'TBD'} />
-                                    <SpecItem icon={HardDrive} label="Storage" value={game.recSpecs?.storage || 'TBD'} />
+                                    <SpecItem icon={Monitor} label="OS" value={optimalProtocols.os} />
+                                    <SpecItem icon={CPU} label="Processor" value={optimalProtocols.processor} />
+                                    <SpecItem icon={Cpu} label="Memory" value={optimalProtocols.memory} />
+                                    <SpecItem icon={Monitor} label="Graphics" value={optimalProtocols.graphics} />
+                                    <SpecItem icon={HardDrive} label="Storage" value={optimalProtocols.storage} />
                                 </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-2 p-4 rounded-xl bg-neon-cyan/5 border border-neon-cyan/20">
+                            <p className="text-xs font-black tracking-widest text-neon-cyan/80 mb-2">EMULATOR_REQUIREMENT</p>
+                            <p className="text-sm text-white/75 font-mono leading-relaxed">
+                                You need a compatible emulator installed before launching ROM downloads. Recommended options:
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-3">
+                                <a
+                                    href="https://www.snes9x.com/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/15 text-neon-cyan hover:bg-neon-cyan/10 transition-colors text-xs font-mono"
+                                >
+                                    <LinkIcon className="w-3.5 h-3.5" />
+                                    SNES Emulator (Snes9x)
+                                </a>
+                                <a
+                                    href="https://fceux.com/web/home.html"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/15 text-neon-cyan hover:bg-neon-cyan/10 transition-colors text-xs font-mono"
+                                >
+                                    <LinkIcon className="w-3.5 h-3.5" />
+                                    NES Emulator (FCEUX)
+                                </a>
                             </div>
                         </div>
                     </section>

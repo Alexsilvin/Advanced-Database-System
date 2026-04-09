@@ -6,6 +6,10 @@
 ## 1. GET `/api/games`
 Returns game catalog data.
 
+### Query Parameters
+- `q` (optional): Case-insensitive partial search term matched against both `title` and `description`.
+  - Example: `/api/games?q=rio`
+
 ### Behavior
 - If DB is connected and has records, returns DB games.
 - If DB is disconnected or query fails, returns fallback mock games.

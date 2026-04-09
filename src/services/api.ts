@@ -44,9 +44,15 @@ async function readJsonResponse<T>(res: Response, fallbackError: string): Promis
   }
 }
 
-export const fetchGames = async (): Promise<Game[]> => {
+export const fetchGames = async (searchTerm?: string): Promise<Game[]> => {
   try {
-    const res = await fetch('/api/games');
+    const requestUrl = new URL('/api/games', window.location.origin);
+    const query = searchTerm?.trim();
+    if (query) {
+      requestUrl.searchParams.set('q', query);
+    }
+
+    const res = await fetch(requestUrl.toString());
     const data = await readJsonResponse<unknown>(res, 'FAILED_TO_FETCH_GAMES');
     if (Array.isArray(data)) {
       return data.map(normalizeGame).filter((game): game is Game => game !== null);

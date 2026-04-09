@@ -12,6 +12,7 @@ const LIBRARY_PREFS_KEY = 'neon-grid:library-prefs';
 interface LibraryProps {
   games: Game[];
   library: GameId[];
+  searchTerm: string;
   onTabChange: (tab: TabType) => void;
   onDownload: (id: GameId) => Promise<void>;
 }
@@ -34,7 +35,7 @@ const categoryFilters: { key: FilterType; label: string; icon: React.ReactNode }
   { key: 'collections', label: 'Collections',      icon: <Server className="w-4 h-4" /> },
 ];
 
-export default function Library({ games, library, onTabChange, onDownload }: LibraryProps) {
+export default function Library({ games, library, searchTerm, onTabChange, onDownload }: LibraryProps) {
   const [activeFilter, setActiveFilter] = useState<FilterType>(() => {
     try {
       const raw = localStorage.getItem(LIBRARY_PREFS_KEY);
@@ -95,7 +96,17 @@ export default function Library({ games, library, onTabChange, onDownload }: Lib
       ? ownedGames.filter(g => installedGames.includes(g.id))
       : ownedGames;
 
-  const sortedGames = [...filteredGames].sort((a, b) =>
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+
+  const searchFilteredGames = normalizedSearchTerm
+    ? filteredGames.filter((game) => {
+        const title = game.title.toLowerCase();
+        const description = game.description.toLowerCase();
+        return title.includes(normalizedSearchTerm) || description.includes(normalizedSearchTerm);
+      })
+    : filteredGames;
+
+  const sortedGames = [...searchFilteredGames].sort((a, b) =>
     sortOrder === 'name' ? a.title.localeCompare(b.title) : 0
   );
 
@@ -246,7 +257,9 @@ export default function Library({ games, library, onTabChange, onDownload }: Lib
           </div>
         ) : sortedGames.length === 0 ? (
           <div className="h-40 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl">
-            <p className="text-white/30 font-mono text-xs uppercase">No items in this category</p>
+            <p className="text-white/30 font-mono text-xs uppercase">
+              {normalizedSearchTerm ? 'No items match your search' : 'No items in this category'}
+            </p>
           </div>
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

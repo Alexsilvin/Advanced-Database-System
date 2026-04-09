@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Terminal, ChevronRight } from 'lucide-react';
+import { Terminal, ChevronRight, Search } from 'lucide-react';
 import { Game, GameId, TabType } from '../types';
 import GameCard from '../components/game/GameCard';
 import FeaturedCarousel from '../components/game/FeaturedCarousel';
@@ -11,9 +11,11 @@ interface StoreProps {
   games: Game[];
   library: GameId[];
   filteredGames: Game[];
+  searchTerm: string;
   dbError: string | null;
   onAddToLibrary: (gameId: GameId) => void;
   onSelectGame: (game: Game) => void;
+  onSearchChange: (value: string) => void;
   onTabChange: (tab: TabType) => void;
 }
 
@@ -44,7 +46,7 @@ const SectionHeader = ({
   </div>
 );
 
-export default function Store({ games, library, filteredGames, dbError, onAddToLibrary, onSelectGame, onTabChange }: StoreProps) {
+export default function Store({ games, library, filteredGames, searchTerm, dbError, onAddToLibrary, onSelectGame, onSearchChange, onTabChange }: StoreProps) {
   const [showAllTrending, setShowAllTrending] = useState<boolean>(() => {
     try {
       const raw = localStorage.getItem(STORE_PREFS_KEY);
@@ -88,6 +90,21 @@ export default function Store({ games, library, filteredGames, dbError, onAddToL
       exit={{ opacity: 0, y: -20 }}
       className="space-y-12 pb-12"
     >
+      <section className="max-w-xl mx-auto w-full text-center">
+        <p className="text-[10px] font-mono uppercase tracking-[0.35em] text-white/35 mb-3">Browse Catalog</p>
+        <div className="flex items-center bg-white/5 border border-neon-cyan/25 rounded-full px-4 py-2.5 shadow-[0_0_24px_rgba(0,243,255,0.08)]">
+          <Search className="w-4 h-4 text-neon-cyan mr-2" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="SEARCH TITLES OR DESCRIPTIONS..."
+            aria-label="Search store catalog"
+            className="bg-transparent border-none outline-none text-sm w-full font-mono text-white placeholder:text-white/30"
+          />
+        </div>
+      </section>
+
       {/* Featured Hero Carousel */}
       {!dbError && games.length > 0 && (
         <FeaturedCarousel
@@ -115,10 +132,10 @@ export default function Store({ games, library, filteredGames, dbError, onAddToL
           <p className="text-sm font-black tracking-widest text-white/70">NO MATCHES IN THE GRID</p>
           <p className="text-xs font-mono text-white/40">Try a different keyword to discover games.</p>
           <button
-            onClick={() => onTabChange('store')}
+            onClick={() => onSearchChange('')}
             className="mt-1 text-neon-cyan text-xs font-mono hover:underline"
           >
-            RESET SEARCH FROM HEADER
+            CLEAR STORE SEARCH
           </button>
         </div>
       )}

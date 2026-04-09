@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AuthSessionResponse, Game, GameId, TabType } from './types';
 import { fetchCurrentUser, fetchGames, loginUser, logoutUser, requestGameDownloadUrl, signupUser } from './services/api';
 import { useGlitchEffect } from './hooks/useGlitchEffect';
@@ -23,6 +23,12 @@ import AdminUpload from './pages/AdminUpload';
 import { UploadCloud } from 'lucide-react';
 
 type AppView = 'welcome' | 'login' | 'signup' | 'app';
+
+const TAB_VALUES: TabType[] = ['admin', 'store', 'library', 'friends', 'bucket', 'notifications', 'game-detail', 'profile', 'upload'];
+
+function isTabType(value: unknown): value is TabType {
+  return typeof value === 'string' && TAB_VALUES.includes(value as TabType);
+}
 
 const LS_KEYS = {
   activeTab: 'neon-grid:active-tab',
@@ -67,6 +73,7 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [toast, setToast] = useState<ToastState | null>(null);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const isPopStateNavigationRef = useRef(false);
   const isGlitching = useGlitchEffect();
 
   const applySessionUser = (sessionUser: AuthSessionResponse | null, preserveNavigation = false) => {
@@ -147,6 +154,58 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(LS_KEYS.activeTab, JSON.stringify(activeTab));
   }, [activeTab]);
+
+  useEffect(() => {
+    if (currentView !== 'app') {
+      return;
+    }
+
+    const historyState = window.history.state as { tab?: unknown } | null;
+    if (!isTabType(historyState?.tab)) {
+      const nextState = {
+        ...(historyState && typeof historyState === 'object' ? historyState : {}),
+        tab: activeTab,
+      };
+      window.history.replaceState(nextState, '', window.location.href);
+    }
+  }, [activeTab, currentView]);
+
+  useEffect(() => {
+    const onPopState = (event: PopStateEvent) => {
+      if (currentView !== 'app') {
+        return;
+      }
+
+      const nextTab = isTabType(event.state?.tab) ? event.state.tab : 'store';
+      isPopStateNavigationRef.current = true;
+      setActiveTab(nextTab);
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [currentView]);
+
+  useEffect(() => {
+    if (currentView !== 'app') {
+      return;
+    }
+
+    if (isPopStateNavigationRef.current) {
+      isPopStateNavigationRef.current = false;
+      return;
+    }
+
+    const historyState = window.history.state as { tab?: unknown } | null;
+    if (historyState?.tab === activeTab) {
+      return;
+    }
+
+    const nextState = {
+      ...(historyState && typeof historyState === 'object' ? historyState : {}),
+      tab: activeTab,
+    };
+    window.history.pushState(nextState, '', window.location.href);
+  }, [activeTab, currentView]);
 
   useEffect(() => {
     localStorage.setItem(LS_KEYS.library, JSON.stringify(library));
@@ -308,8 +367,17 @@ export default function App() {
     notify(`${newIds.length} game(s) acquired successfully.`, 'success');
   };
 
+  const normalizedSearch = searchTerm.trim().toLowerCase();
   const filteredGames = Array.isArray(games)
-    ? games.filter(g => g.title.toLowerCase().includes(searchTerm.toLowerCase()))
+    ? games.filter((game) => {
+        if (!normalizedSearch) {
+          return true;
+        }
+
+        const title = game.title.toLowerCase();
+        const description = game.description.toLowerCase();
+        return title.includes(normalizedSearch) || description.includes(normalizedSearch);
+      })
     : [];
 
   const handleDownloadGame = async (gameId: GameId) => {
@@ -523,9 +591,11 @@ export default function App() {
                 games={games}
                 library={library}
                 filteredGames={filteredGames}
+                searchTerm={searchTerm}
                 dbError={dbError}
                 onAddToLibrary={addToLibrary}
                 onSelectGame={handleSelectGame}
+                onSearchChange={setSearchTerm}
                 onTabChange={setActiveTab}
               />
             )}
@@ -546,6 +616,7 @@ export default function App() {
               <Library
                 games={games}
                 library={library}
+                searchTerm={searchTerm}
                 onTabChange={setActiveTab}
                 onDownload={handleDownloadGame}
               />

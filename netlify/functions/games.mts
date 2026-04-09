@@ -73,23 +73,61 @@ async function initDb(p: pg.Pool) {
 }
 
 export default async (req: Request, context: Context) => {
+  const requestUrl = new URL(req.url);
+  const rawSearch = requestUrl.searchParams.get("q") ?? "";
+  const searchTerm = rawSearch.trim();
   const p = getPool();
 
   if (!p) {
     console.warn("DB_OFFLINE: Serving mock data.");
-    return Response.json(mockGames);
+    const mockResult = searchTerm
+      ? mockGames.filter((game) => {
+          const query = searchTerm.toLowerCase();
+          return (
+            game.title.toLowerCase().includes(query) ||
+            game.description.toLowerCase().includes(query)
+          );
+        })
+      : mockGames;
+
+    return Response.json(mockResult);
   }
 
   try {
     await initDb(p);
-    const result = await p.query("SELECT * FROM games");
+    const result = searchTerm
+      ? await p.query(
+          `
+            SELECT *
+            FROM games
+            WHERE title ILIKE $1 OR description ILIKE $1
+          `,
+          [`%${searchTerm}%`],
+        )
+      : await p.query("SELECT * FROM games");
+
     if (result.rows.length === 0) {
+      if (searchTerm) {
+        return Response.json([]);
+      }
       return Response.json(mockGames);
     }
+
     return Response.json(result.rows.map((row) => normalizeGameRow(row)));
   } catch (err) {
     console.error("Database query failed:", err);
     console.warn("Falling back to mock data.");
-    return Response.json(mockGames);
+
+    const mockResult = searchTerm
+      ? mockGames.filter((game) => {
+          const query = searchTerm.toLowerCase();
+          return (
+            game.title.toLowerCase().includes(query) ||
+            game.description.toLowerCase().includes(query)
+          );
+        })
+      : mockGames;
+
+    return Response.json(mockResult);
   }
 };

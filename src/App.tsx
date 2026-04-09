@@ -539,6 +539,7 @@ export default function App() {
                 onAcquire={addToLibrary}
                 onAddToBucket={addToBucket}
                 onDownload={handleDownloadGame}
+                currentUsername={username}
               />
             )}
 

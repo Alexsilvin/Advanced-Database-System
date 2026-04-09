@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ChefHat as CPU, Monitor, HardDrive, Cpu, Download, ArrowLeft, Star, ShieldCheck, Zap, ShoppingCart, Link as LinkIcon } from 'lucide-react';
 import { Game, GameId } from '../types';
+import CommentSection from '../components/game/CommentSection';
 
 interface GameDetailProps {
     game: Game | null;
@@ -11,6 +12,7 @@ interface GameDetailProps {
     onAcquire: (gameId: GameId) => void;
     onAddToBucket: (gameId: GameId) => void;
     onDownload: (gameId: GameId) => Promise<void>;
+    currentUsername: string;
 }
 
 const SpecItem = ({ icon: Icon, label, value }: { icon: any, label: string, value: string }) => (
@@ -25,7 +27,7 @@ const SpecItem = ({ icon: Icon, label, value }: { icon: any, label: string, valu
     </div>
 );
 
-export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, onAddToBucket, onDownload }: GameDetailProps) {
+export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, onAddToBucket, onDownload, currentUsername }: GameDetailProps) {
     const [isInitializing, setIsInitializing] = useState(false);
 
     if (!game) return null;
@@ -118,6 +120,9 @@ export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, o
                             {game.description}
                         </p>
                     </section>
+
+                    {/* Comments Section */}
+                    <CommentSection gameId={game.id} currentUsername={currentUsername} />
 
                     {/* System Requirements */}
                     <section className="space-y-6">

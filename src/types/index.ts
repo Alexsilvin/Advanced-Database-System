@@ -100,6 +100,15 @@ export interface PosterEnrichmentResult {
 
 export type TabType = 'admin' | 'store' | 'library' | 'friends' | 'bucket' | 'notifications' | 'game-detail' | 'profile' | 'upload';
 
+export interface Comment {
+  id: string;
+  gameId: string;
+  username: string;
+  content: string;
+  timestamp: string;
+  avatar_url?: string;
+}
+
 export type FriendStatus = 'online' | 'offline' | 'playing';
 
 export interface Friend {

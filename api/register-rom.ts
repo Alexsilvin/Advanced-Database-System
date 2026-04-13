@@ -1,4 +1,6 @@
-import handler from "../netlify/functions/register-rom.mts";
-import { createVercelHandler } from "./_shared/invoke-netlify";
+import type { IncomingMessage, ServerResponse } from "http";
 
-export default createVercelHandler(handler);
+export default async function registerRom(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  res.statusCode = 501;
+  res.end(JSON.stringify({ error: "ROM registration not yet available on Vercel. Please use Netlify deployment." }));
+}

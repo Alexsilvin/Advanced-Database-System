@@ -1,17 +1,59 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
+import { Search, UserRoundPlus } from 'lucide-react';
 import { Friend } from '../types';
 import FriendCard from '../components/ui/FriendCard';
+import { searchUsers } from '../services/api';
+import { UserSearchResult } from '../types';
 
 interface FriendsProps {
   friends: Friend[];
   onAddFriend: (username: string) => Promise<void>;
+  onOpenProfile: (username: string) => void;
 }
 
-export default function Friends({ friends, onAddFriend }: FriendsProps) {
+export default function Friends({ friends, onAddFriend, onOpenProfile }: FriendsProps) {
   const [friendUsername, setFriendUsername] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    const term = friendUsername.trim();
+    if (!term) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    let isActive = true;
+    setIsSearching(true);
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const results = await searchUsers(term);
+          if (isActive) {
+            setSearchResults(results);
+          }
+        } catch {
+          if (isActive) {
+            setSearchResults([]);
+          }
+        } finally {
+          if (isActive) {
+            setIsSearching(false);
+          }
+        }
+      })();
+    }, 180);
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(timer);
+    };
+  }, [friendUsername]);
 
   const openMessage = (username: string) => {
     setStatusMessage(`Chat channel opened with ${username}.`);
@@ -47,6 +89,10 @@ export default function Friends({ friends, onAddFriend }: FriendsProps) {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-black italic tracking-tighter">GRID_CONTACTS</h2>
         <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-black/40 border border-white/20 rounded-lg text-white/40 text-xs font-mono">
+            <Search className="w-3.5 h-3.5" />
+            LIVE_USER_SEARCH
+          </div>
           <input
             value={friendUsername}
             onChange={(event) => setFriendUsername(event.target.value)}
@@ -69,6 +115,46 @@ export default function Friends({ friends, onAddFriend }: FriendsProps) {
         </div>
       </div>
 
+      <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-mono tracking-[0.35em] text-neon-cyan uppercase">Search results</p>
+            <p className="text-xs text-white/40 font-mono mt-1">Type a username to progressively discover users.</p>
+          </div>
+          <UserRoundPlus className="w-4 h-4 text-neon-magenta" />
+        </div>
+
+        {friendUsername.trim() ? (
+          isSearching ? (
+            <p className="text-xs font-mono text-white/40">Scanning the grid...</p>
+          ) : searchResults.length === 0 ? (
+            <p className="text-xs font-mono text-white/40">No matching users found.</p>
+          ) : (
+            <div className="grid gap-2">
+              {searchResults.map((user) => (
+                <button
+                  key={user.id}
+                  onClick={() => onOpenProfile(user.username)}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:border-neon-cyan/30 hover:bg-neon-cyan/5 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold truncate">{user.username}</p>
+                    <p className="text-[10px] font-mono text-white/40 uppercase">
+                      {user.is_friend ? 'Already in GRID_CONTACTS' : user.role}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-1 rounded-full border border-white/10 text-white/50 uppercase">
+                    VIEW_PROFILE
+                  </span>
+                </button>
+              ))}
+            </div>
+          )
+        ) : (
+          <p className="text-xs font-mono text-white/30">Search by username to reveal matching users here.</p>
+        )}
+      </div>
+
       {statusMessage && (
         <p className="text-xs font-mono text-neon-cyan/80 border border-neon-cyan/20 bg-neon-cyan/5 rounded-lg px-3 py-2">
           {statusMessage}
@@ -83,7 +169,12 @@ export default function Friends({ friends, onAddFriend }: FriendsProps) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {friends.map((friend) => (
-            <FriendCard key={friend.username} friend={friend} onMessage={openMessage} />
+            <FriendCard
+              key={friend.username}
+              friend={friend}
+              onMessage={openMessage}
+              onViewProfile={onOpenProfile}
+            />
           ))}
         </div>
       )}

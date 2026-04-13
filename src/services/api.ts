@@ -1,4 +1,4 @@
-import { AdminOverviewResponse, AppNotification, AuthSessionResponse, Conversation, DirectMessage, DownloadUrlResponse, Friend, Game, GamePurchase, GroupMessage, MessageGroup, PosterEnrichmentResult, RegisterRomResponse, RomUploadUrlResponse, UserAccount, UserRole, Wallet, WalletTransaction } from '../types';
+import { AdminOverviewResponse, AppNotification, AuthSessionResponse, Conversation, DirectMessage, DownloadUrlResponse, Friend, Game, GamePurchase, GroupMessage, MessageGroup, PosterEnrichmentResult, RegisterRomResponse, RomUploadUrlResponse, UserRole, UserSearchResult, Wallet, WalletTransaction } from '../types';
 
 function normalizeGame(raw: unknown): Game | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -157,7 +157,7 @@ export const requestGameDownloadUrl = async (payload: {
   expiresInSeconds?: number;
   adminKey?: string;
 }): Promise<DownloadUrlResponse> => {
-  const res = await fetch('/api/game-download-url', {
+  const res = await fetch('/api/games?action=download-url', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -177,6 +177,22 @@ export const requestGameDownloadUrl = async (payload: {
   }
 
   return data as DownloadUrlResponse;
+};
+
+export const searchUsers = async (query: string): Promise<UserSearchResult[]> => {
+  const term = query.trim();
+  if (!term) return [];
+
+  const res = await fetch(`/api/friends?search=${encodeURIComponent(term)}`, {
+    credentials: 'include',
+  });
+  const data = await readJsonResponse<{ error?: string; users?: UserSearchResult[] }>(res, 'FAILED_TO_SEARCH_USERS');
+
+  if (!res.ok) {
+    throw new Error(data.error || 'FAILED_TO_SEARCH_USERS');
+  }
+
+  return Array.isArray(data.users) ? data.users : [];
 };
 
 export const requestRomUploadUrl = async (payload: {

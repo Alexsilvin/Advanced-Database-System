@@ -4,12 +4,17 @@ import {
   User, Cpu, Gamepad2, Clock, Users, Trophy,
   Edit3, Bell, BellOff, LogOut, Shield, Zap, Lock, ChevronRight
 } from 'lucide-react';
+import { UserAccount } from '../types';
 
 interface ProfileProps {
   libraryCount: number;
   friendsCount: number;
   onLogout: () => void;
   role: 'admin' | 'player';
+  currentUser: UserAccount | null;
+  profile?: UserAccount | null;
+  onOpenMessages?: (username: string) => void;
+  onBackToSelf?: () => void;
 }
 
 type RecentActivityItem = {
@@ -39,13 +44,76 @@ const rarityColor: Record<string, string> = {
   LEGENDARY: 'text-neon-yellow border-neon-yellow/30 bg-neon-yellow/10',
 };
 
-export default function Profile({ libraryCount, friendsCount, onLogout, role }: ProfileProps) {
+export default function Profile({ libraryCount, friendsCount, onLogout, role, currentUser, profile, onOpenMessages, onBackToSelf }: ProfileProps) {
   const [notifications, setNotifications] = useState(true);
   const [editingName, setEditingName] = useState(false);
-  const [displayName, setDisplayName] = useState('SYLVESTRE_01');
+  const [displayName, setDisplayName] = useState((currentUser?.username || 'SYLVESTRE_01').toUpperCase());
 
   const totalHours = recentActivity.reduce((sum, g) => sum + g.hours, 0);
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
+  const viewedUser = profile ?? currentUser;
+  const isViewingSelf = !profile || !currentUser || profile.id === currentUser.id;
+
+  if (viewedUser && !isViewingSelf) {
+    return (
+      <motion.div
+        key="profile-public"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="space-y-6 pb-8"
+      >
+        <div className="rounded-2xl border border-neon-cyan/20 bg-linear-to-br from-neon-cyan/10 via-black to-neon-magenta/10 p-8 space-y-6">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                <User className="w-10 h-10 text-neon-cyan" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono tracking-[0.35em] text-neon-cyan uppercase">PUBLIC_PROFILE</p>
+                <h2 className="text-3xl font-black italic tracking-tighter truncate">{viewedUser.username}</h2>
+                <p className="text-xs font-mono text-white/40 mt-1">Only public account details are visible here.</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {onOpenMessages && (
+                <button
+                  onClick={() => onOpenMessages(viewedUser.username)}
+                  className="px-4 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest text-xs"
+                >
+                  MESSAGE
+                </button>
+              )}
+              {onBackToSelf && (
+                <button
+                  onClick={onBackToSelf}
+                  className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white font-black italic tracking-widest text-xs"
+                >
+                  BACK_TO_ME
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-[10px] font-mono text-white/40 tracking-widest">USERNAME</p>
+              <p className="mt-2 text-sm font-black italic">{viewedUser.username}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-[10px] font-mono text-white/40 tracking-widest">ROLE</p>
+              <p className="mt-2 text-sm font-black italic uppercase text-neon-cyan">{viewedUser.role}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-[10px] font-mono text-white/40 tracking-widest">EMAIL</p>
+              <p className="mt-2 text-sm font-black italic truncate">{viewedUser.email || 'HIDDEN'}</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div

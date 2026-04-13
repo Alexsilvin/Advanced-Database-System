@@ -1,13 +1,14 @@
 import React from 'react';
-import { User, Terminal } from 'lucide-react';
+import { Eye, User, Terminal } from 'lucide-react';
 import { Friend } from '../../types';
 
 interface FriendCardProps {
   friend: Friend;
   onMessage?: (username: string) => void;
+  onViewProfile?: (username: string) => void;
 }
 
-export default function FriendCard({ friend, onMessage }: FriendCardProps) {
+export default function FriendCard({ friend, onMessage, onViewProfile }: FriendCardProps) {
   const { username, status, game } = friend;
   
   return (
@@ -34,6 +35,14 @@ export default function FriendCard({ friend, onMessage }: FriendCardProps) {
         title={`Message ${username}`}
       >
         <Terminal className="w-4 h-4" />
+      </button>
+      <button
+        onClick={() => onViewProfile?.(username)}
+        className="p-2 text-white/20 hover:text-neon-magenta transition-colors"
+        aria-label={`View profile for ${username}`}
+        title={`View ${username} profile`}
+      >
+        <Eye className="w-4 h-4" />
       </button>
     </div>
   );

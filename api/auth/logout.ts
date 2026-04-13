@@ -65,11 +65,58 @@ async function ensureAuthSchema(p: any): Promise<void> {
       expires_at TIMESTAMPTZ NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS games (
+      id SERIAL PRIMARY KEY,
+      title TEXT,
+      price REAL,
+      description TEXT,
+      image TEXT,
+      category TEXT,
+      is_active BOOLEAN DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      is_downloadable BOOLEAN DEFAULT false,
+      rom_storage_key TEXT,
+      rom_filename TEXT,
+      rom_size_bytes INT,
+      rom_sha256 TEXT
+    );
+    CREATE TABLE IF NOT EXISTS library_items (
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      game_id INT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      purchased_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (user_id, game_id)
+    );
+    CREATE TABLE IF NOT EXISTS friends (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      friend_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'accepted',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, friend_id),
+      CHECK (user_id != friend_id)
+    );
+    CREATE TABLE IF NOT EXISTS notifications (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      game_id INT REFERENCES games(id) ON DELETE SET NULL,
+      friend_request_id UUID REFERENCES friends(id) ON DELETE CASCADE,
+      message TEXT,
+      is_read BOOLEAN DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
   await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'player';`);
   await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;`);
   await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;`);
   await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_salt TEXT;`);
+  await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;`);
+  await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS is_downloadable BOOLEAN DEFAULT false;`);
+  await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS rom_storage_key TEXT;`);
+  await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS rom_filename TEXT;`);
+  await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS rom_size_bytes INT;`);
+  await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS rom_sha256 TEXT;`);
   await p.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users (email) WHERE email IS NOT NULL;`);
 }
 

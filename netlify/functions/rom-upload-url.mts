@@ -62,7 +62,13 @@ function sanitizeFilename(filename: string): string {
 }
 
 function getBucket(): string | null {
-  return process.env.S3_BUCKET || process.env.FILEBASE_BUCKET || null;
+  return (
+    process.env.S3_BUCKET ||
+    process.env.FILEBASE_BUCKET ||
+    process.env.S3_BUCKET_NAME ||
+    process.env.FILEBASE_BUCKET_NAME ||
+    null
+  );
 }
 
 export default async (req: Request, _context: Context) => {
@@ -105,7 +111,13 @@ export default async (req: Request, _context: Context) => {
 
     const bucket = getBucket();
     if (!bucket) {
-      return Response.json({ error: "S3_BUCKET is not configured" }, { status: 500 });
+      return Response.json(
+        {
+          error:
+            "Bucket is not configured. Set S3_BUCKET (or FILEBASE_BUCKET/S3_BUCKET_NAME/FILEBASE_BUCKET_NAME).",
+        },
+        { status: 500 }
+      );
     }
 
     const storageKey = `roms/${body.gameId}/${sanitizeFilename(body.filename)}`;

@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { AuthSessionResponse, Game, GameId, TabType } from './types';
-import { addBucketItem, addFriend, fetchBucketItems, fetchCurrentUser, fetchFriends, fetchGames, fetchNotifications, loginUser, logoutUser, removeBucketItem, replaceBucketItems, requestGameDownloadUrl, signupUser } from './services/api';
+import { addBucketItem, addFriend, fetchBucketItems, fetchCurrentUser, fetchFriends, fetchGames, fetchNotifications, fetchWallet, loginUser, logoutUser, removeBucketItem, replaceBucketItems, requestGameDownloadUrl, signupUser } from './services/api';
 import { useGlitchEffect } from './hooks/useGlitchEffect';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import MobileNav from './components/layout/MobileNav';
 import Toast from './components/ui/Toast';
 import QuickSwitchPalette from './components/ui/QuickSwitchPalette';
+import BalanceIcon from './components/ui/BalanceIcon';
 import Store from './pages/Store';
 import Library from './pages/Library';
 import Friends from './pages/Friends';
 import Bucket from './pages/Bucket';
 import Notifications from './pages/Notifications';
+import Messages from './pages/Messages';
+import Groups from './pages/Groups';
+import Wallet from './pages/Wallet';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Welcome from './pages/Welcome';
@@ -63,6 +67,7 @@ export default function App() {
   const [bucket, setBucket] = useState<GameId[]>(() => readStorage<Array<string | number>>(LS_KEYS.bucket, []).map((id) => String(id)));
   const [friends, setFriends] = useState<Array<{ username: string; status: 'online' | 'offline' | 'playing'; game?: string }>>([]);
   const [notificationsCount, setNotificationsCount] = useState(0);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [loading] = useState(false);
     const [dbError, setDbError] = useState<string | null>(null);
@@ -96,19 +101,22 @@ export default function App() {
 
   const loadUserScopedData = async () => {
     try {
-      const [bucketIds, friendsList, notifications] = await Promise.all([
+      const [bucketIds, friendsList, notifications, wallet] = await Promise.all([
         fetchBucketItems(),
         fetchFriends(),
         fetchNotifications(),
+        fetchWallet(),
       ]);
 
       setBucket(bucketIds);
       setFriends(friendsList);
       setNotificationsCount(notifications.filter((item) => !item.read).length);
+      setWalletBalance(wallet.balance);
     } catch {
       setBucket([]);
       setFriends([]);
       setNotificationsCount(0);
+      setWalletBalance(0);
     }
   };
 
@@ -240,6 +248,9 @@ export default function App() {
       if (key === 'f') setActiveTab('friends');
       if (key === 'b') setActiveTab('bucket');
       if (key === 'n') setActiveTab('notifications');
+      if (key === 'm') setActiveTab('messages');
+      if (key === 'g') setActiveTab('groups');
+      if (key === 'w') setActiveTab('wallet');
       if (key === 'u') setActiveTab('upload');
       if (key === '/') {
         event.preventDefault();
@@ -295,6 +306,7 @@ export default function App() {
       setBucket([]);
       setFriends([]);
       setNotificationsCount(0);
+      setWalletBalance(0);
       notify('Disconnected from NEON-GRID.', 'info');
     })();
   };
@@ -521,6 +533,7 @@ export default function App() {
         onTabChange={setActiveTab}
         notificationsCount={notificationsCount}
         bucketCount={bucket.length}
+        walletBalance={walletBalance}
         username={username}
       />
 
@@ -654,6 +667,18 @@ export default function App() {
               <Notifications onUnreadCountChange={setNotificationsCount} />
             )}
 
+          {activeTab === 'messages' && (
+              <Messages userId={username} />
+            )}
+
+          {activeTab === 'groups' && (
+              <Groups userId={username} />
+            )}
+
+          {activeTab === 'wallet' && (
+              <Wallet onBalanceUpdate={setWalletBalance} />
+            )}
+
           {activeTab === 'profile' && (
               <Profile
                 libraryCount={library.length}
@@ -694,7 +719,7 @@ export default function App() {
           © 2026 NEON-GRID_SYSTEMS // ALL RIGHTS RESERVED // STABILITY: 98.4%
         </p>
         <p className="text-[10px] font-mono text-white/35 mt-3 tracking-wider">
-          SHORTCUTS: CTRL/CMD+K PALETTE, S STORE, L LIBRARY, F FRIENDS, B BUCKET, N NOTIFICATIONS, / SEARCH
+          SHORTCUTS: CTRL/CMD+K PALETTE · S STORE · L LIBRARY · F FRIENDS · B BUCKET · N NOTIFICATIONS · M MESSAGES · G GROUPS · W WALLET · / SEARCH
         </p>
       </footer>
 

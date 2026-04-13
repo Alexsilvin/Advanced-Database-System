@@ -1,5 +1,5 @@
 import React from 'react';
-import { Gamepad2, Users, ShoppingBag, LogOut, UploadCloud, ShieldCheck } from 'lucide-react';
+import { Gamepad2, Users, ShoppingBag, LogOut, UploadCloud, ShieldCheck, MessageCircle, Users2, Wallet } from 'lucide-react';
 import { TabType } from '../../types';
 
 interface SidebarProps {
@@ -38,6 +38,24 @@ export default function Sidebar({ activeTab, onTabChange, onLogout, onOpenUpload
         onClick={() => onTabChange('friends')}
         icon={<Users className="w-5 h-5" />}
         label="GRID FRIENDS"
+      />
+      <NavButton
+        active={activeTab === 'messages'}
+        onClick={() => onTabChange('messages')}
+        icon={<MessageCircle className="w-5 h-5" />}
+        label="MESSAGES"
+      />
+      <NavButton
+        active={activeTab === 'groups'}
+        onClick={() => onTabChange('groups')}
+        icon={<Users2 className="w-5 h-5" />}
+        label="COMMUNITIES"
+      />
+      <NavButton
+        active={activeTab === 'wallet'}
+        onClick={() => onTabChange('wallet')}
+        icon={<Wallet className="w-5 h-5" />}
+        label="MY WALLET"
       />
       <div className="mt-auto pt-8 border-t border-white/10 flex flex-col gap-4">
         <div className="p-4 rounded-xl bg-linear-to-br from-neon-cyan/10 to-transparent border border-neon-cyan/20">

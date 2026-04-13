@@ -85,7 +85,7 @@ export default function Wallet({ onBalanceUpdate }: WalletPageProps) {
     >
       {/* Balance Card */}
       <motion.div 
-        className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/50 rounded-lg p-6"
+        className="bg-linear-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/50 rounded-lg p-6"
         whileHover={{ scale: 1.02 }}
       >
         <p className="text-gray-300 mb-2">Current Balance</p>
@@ -142,6 +142,7 @@ export default function Wallet({ onBalanceUpdate }: WalletPageProps) {
                       value={method}
                       checked={paymentMethod === method}
                       onChange={() => setPaymentMethod(method)}
+                      aria-label={`Payment method: ${method.replace('_', ' ')}`}
                       className="mr-3"
                     />
                     <span className="text-white capitalize">

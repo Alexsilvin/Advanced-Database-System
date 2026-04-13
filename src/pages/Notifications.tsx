@@ -1,79 +1,77 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Bell, User, Zap, ShoppingBag, X, CheckCheck } from 'lucide-react';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
-import { urlToHttpOptions } from 'url';
+import { clearNotifications, dismissNotification, fetchNotifications, markAllNotificationsRead } from '../services/api';
+import { AppNotification } from '../types';
 
-interface Notification {
-  id: number;
-  type: 'friend' | 'system' | 'sale' | 'game';
-  title: string;
-  message: string;
-  time: string;
-  read: boolean;
+interface NotificationsProps {
+  onUnreadCountChange?: (count: number) => void;
 }
 
-const mockNotifications: Notification[] = [
-  {
-    id: 1,
-    type: 'friend',
-    title: 'VOID_WALKER IS NOW ONLINE',
-    message: 'Your grid contact just connected.',
-    time: '2m ago',
-    read: false,
-  },
-  {
-    id: 2,
-    type: 'sale',
-    title: 'FLASH_SALE: 48H ONLY',
-    message: 'NEON STRIKE is 60% OFF. Limited time acquisition window.',
-    time: '1h ago',
-    read: false,
-  },
-  {
-    id: 3,
-    type: 'game',
-    title: 'NEW RELEASE: VOID_PROTOCOL',
-    message: 'A new title has been added to the Grid catalog.',
-    time: '3h ago',
-    read: true,
-  },
-  {
-    id: 4,
-    type: 'system',
-    title: 'GRID MAINTENANCE COMPLETE',
-    message: 'All systems are back online. Stability: 98.4%.',
-    time: '12h ago',
-    read: true,
-  },
-  {
-    id: 5,
-    type: 'friend',
-    title: 'GLITCH_GHOST SENT YOU A MESSAGE',
-    message: 'Hey, want to squad up for NEON STRIKE?',
-    time: '1d ago',
-    read: true,
-  },
-];
-
-function TypeIcon({ type }: { type: Notification['type'] }) {
+function TypeIcon({ type }: { type: AppNotification['type'] }) {
   if (type === 'friend') return <User className="w-4 h-4 text-neon-cyan" />;
   if (type === 'system') return <Zap className="w-4 h-4 text-neon-yellow" />;
   if (type === 'sale') return <ShoppingBag className="w-4 h-4 text-neon-magenta" />;
   return <Bell className="w-4 h-4 text-green-400" />;
 }
 
-export default function Notifications() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+export default function Notifications({ onUnreadCountChange }: NotificationsProps) {
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [undoSnapshot, setUndoSnapshot] = useState<Notification[] | null>(null);
+  const [undoSnapshot, setUndoSnapshot] = useState<AppNotification[] | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    void (async () => {
+      try {
+        const data = await fetchNotifications();
+        if (mounted) {
+          setNotifications(data);
+          onUnreadCountChange?.(data.filter((item) => !item.read).length);
+        }
+      } catch {
+        if (mounted) {
+          setNotifications([]);
+          onUnreadCountChange?.(0);
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [onUnreadCountChange]);
+
+  useEffect(() => {
+    onUnreadCountChange?.(notifications.filter((item) => !item.read).length);
+  }, [notifications, onUnreadCountChange]);
 
   const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    void (async () => {
+      try {
+        await markAllNotificationsRead();
+        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      } catch {
+        // Keep UI unchanged when backend update fails.
+      }
+    })();
   };
 
-  const dismiss = (id: number) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  const dismiss = (id: string) => {
+    void (async () => {
+      try {
+        await dismissNotification(id);
+      } finally {
+        setNotifications((prev) => prev.filter((n) => n.id !== id));
+      }
+    })();
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -116,7 +114,12 @@ export default function Notifications() {
         </div>
       </div>
 
-      {notifications.length === 0 ? (
+      {isLoading ? (
+        <div className="h-64 flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl">
+          <Bell className="w-12 h-12 text-white/20 mb-4" />
+          <p className="text-white/40 font-mono">SCANNING SIGNAL FEED...</p>
+        </div>
+      ) : notifications.length === 0 ? (
         <div className="h-64 flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl">
           <Bell className="w-12 h-12 text-white/20 mb-4" />
           <p className="text-white/40 font-mono">NO SIGNALS DETECTED</p>
@@ -188,9 +191,16 @@ export default function Notifications() {
         confirmLabel="CLEAR ALL"
         onCancel={() => setConfirmClear(false)}
         onConfirm={() => {
-          setUndoSnapshot(notifications);
-          setNotifications([]);
-          setConfirmClear(false);
+          void (async () => {
+            try {
+              await clearNotifications();
+              setUndoSnapshot(notifications);
+              setNotifications([]);
+              setConfirmClear(false);
+            } catch {
+              setConfirmClear(false);
+            }
+          })();
         }}
       />
     </motion.div>

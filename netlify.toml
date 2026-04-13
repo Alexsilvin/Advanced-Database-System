@@ -3,6 +3,16 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[build.environment]
+  APP_URL = "http://localhost:3001"
+  ADMIN_BOOTSTRAP_USERNAME = "admin"
+  S3_REGION = "us-east-1"
+  S3_ENDPOINT = "https://s3.filebase.com"
+  S3_BUCKET = "sfc-rom"
+  FILEBASE_BUCKET = "sfc-rom"
+  S3_FORCE_PATH_STYLE = "true"
+  FILEBASE_IPFS_RPC_ENDPOINT = "https://rpc.filebase.io"
+
 [[redirects]]
   from = "/api/auth/signup"
   to = "/.netlify/functions/auth-signup"

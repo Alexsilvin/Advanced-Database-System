@@ -85,7 +85,15 @@ npm run preview
 - Make sure the Filebase bucket exists and the bucket name matches `S3_BUCKET` or `FILEBASE_BUCKET`
 - If the signed upload works but registration fails, verify `DATABASE_URL` and the target game row
 
-### 6.5 Upload fails with a license length error
+### 6.5 Deployed app says bucket is not configured
+- Call `GET /api/env-health` on your deployed site.
+- Authenticate with one of these methods:
+	- Sign in as an admin user (session cookie auth), or
+	- Send header `x-admin-key` with value matching `ROM_ADMIN_KEY`.
+- The endpoint returns only variable names and status, never secret values.
+- Resolve any entries under `missingRequired`, then redeploy.
+
+### 6.6 Upload fails with a license length error
 - Keep `licenseType` under 40 characters
 - Use short values like `licensed`, `unknown`, or `fan_patch`
 - If the database still has the older varchar limit, rerun the ROM/poster migration before trying again

@@ -155,14 +155,13 @@ EXECUTE FUNCTION create_user_wallet();
 -- ============================================================
 
 -- Get unread message count for a user
-CREATE OR REPLACE FUNCTION get_unread_message_count(user_id UUID) RETURNS BIGINT AS $$
-DECLARE
-  count BIGINT;
+CREATE OR REPLACE FUNCTION get_unread_message_count(user_id UUID) RETURNS BIGCOUNT AS $$
 BEGIN
-  SELECT COUNT(*) INTO count
-  FROM messages
-  WHERE recipient_id = user_id AND is_read = FALSE;
-  RETURN count;
+  RETURN (
+    SELECT COUNT(*)
+    FROM messages
+    WHERE recipient_id = user_id AND is_read = FALSE
+  );
 END;
 $$ LANGUAGE plpgsql;
 

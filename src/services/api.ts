@@ -34,12 +34,21 @@ function normalizeGame(raw: unknown): Game | null {
 async function readJsonResponse<T>(res: Response, fallbackError: string): Promise<T> {
   const text = await res.text();
   if (!text) {
+    if (!res.ok) {
+      throw new Error(`${fallbackError} (HTTP ${res.status})`);
+    }
     throw new Error(fallbackError);
   }
 
   try {
     return JSON.parse(text) as T;
   } catch {
+    if (!res.ok) {
+      const detail = text.trim().slice(0, 240);
+      throw new Error(
+        detail ? `${fallbackError} (HTTP ${res.status}): ${detail}` : `${fallbackError} (HTTP ${res.status})`
+      );
+    }
     throw new Error(fallbackError);
   }
 }

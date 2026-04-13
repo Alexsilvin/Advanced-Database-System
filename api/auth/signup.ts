@@ -1,6 +1,4 @@
-import handler from "../../../netlify/functions/auth-signup.mts";
-import { invokeNetlifyHandler } from "../../_shared/invoke-netlify";
+import handler from "../../netlify/functions/auth-signup.mts";
+import { createVercelHandler } from "../_shared/invoke-netlify";
 
-export default async function vercelAuthSignup(req: Request): Promise<Response> {
-  return invokeNetlifyHandler(handler, req);
-}
+export default createVercelHandler(handler);

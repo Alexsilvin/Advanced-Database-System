@@ -15,6 +15,15 @@ type FriendRow = {
   status: "online" | "offline" | "playing";
 };
 
+type UserSearchRow = {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  role: "admin" | "player";
+  email: string | null;
+  is_friend: boolean;
+};
+
 let pool: Pool | null = null;
 
 function getPool(): Pool | null {
@@ -122,6 +131,41 @@ export default async function friends(req: IncomingMessage, res: ServerResponse)
     }
 
     if (req.method === "GET") {
+      const requestUrl = new URL(req.url || "/api/friends", `http://${req.headers.host || "localhost"}`);
+      const searchTerm = requestUrl.searchParams.get("search")?.trim() || "";
+
+      if (searchTerm) {
+        const result = await p.query<UserSearchRow>(
+          `SELECT
+             u.id,
+             u.username,
+             u.avatar_url,
+             COALESCE(u.role, 'player')::text AS role,
+             u.email,
+             EXISTS(
+               SELECT 1
+               FROM friends f
+               WHERE f.user_id = $1 AND f.friend_id = u.id AND f.status = 'accepted'
+             ) AS is_friend
+           FROM users u
+           WHERE u.id <> $1
+             AND (
+               u.username ILIKE $2 || '%'
+               OR u.username ILIKE '%' || $2 || '%'
+             )
+           ORDER BY
+             CASE WHEN u.username ILIKE $2 || '%' THEN 0 ELSE 1 END,
+             u.username ASC
+           LIMIT 8`,
+          [user.id, searchTerm.slice(0, 40)]
+        );
+
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ users: result.rows }));
+        return;
+      }
+
       const result = await p.query<FriendRow>(
         `SELECT
            f.id,

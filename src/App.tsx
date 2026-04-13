@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { AuthSessionResponse, Game, GameId, TabType } from './types';
-import { addBucketItem, addFriend, fetchBucketItems, fetchCurrentUser, fetchFriends, fetchGames, fetchNotifications, fetchWallet, loginUser, logoutUser, removeBucketItem, replaceBucketItems, requestGameDownloadUrl, signupUser } from './services/api';
+import { AuthSessionResponse, Game, GameId, TabType, UserAccount } from './types';
+import { addBucketItem, addFriend, fetchBucketItems, fetchCurrentUser, fetchFriends, fetchGames, fetchNotifications, fetchWallet, loginUser, logoutUser, removeBucketItem, replaceBucketItems, requestGameDownloadUrl, searchUsers, signupUser } from './services/api';
 import { useGlitchEffect } from './hooks/useGlitchEffect';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
@@ -55,6 +55,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState<AppView>('welcome');
   const [username, setUsername] = useState<string>('');
   const [userRole, setUserRole] = useState<'admin' | 'player'>('player');
+  const [currentUser, setCurrentUser] = useState<AuthSessionResponse | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [showDashboardOnce, setShowDashboardOnce] = useState(false);
   const [isSessionChecking, setIsSessionChecking] = useState(true);
@@ -68,6 +69,7 @@ export default function App() {
   const [friends, setFriends] = useState<Array<{ username: string; status: 'online' | 'offline' | 'playing'; game?: string }>>([]);
   const [notificationsCount, setNotificationsCount] = useState(0);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [selectedProfile, setSelectedProfile] = useState<UserAccount | null>(null);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [loading] = useState(false);
     const [dbError, setDbError] = useState<string | null>(null);
@@ -78,6 +80,7 @@ export default function App() {
 
   const applySessionUser = (sessionUser: AuthSessionResponse | null, preserveNavigation = false) => {
     if (sessionUser) {
+      setCurrentUser(sessionUser);
       setUsername(sessionUser.username);
       setUserRole(sessionUser.role);
       setIsLoggedIn(true);
@@ -89,6 +92,7 @@ export default function App() {
       return;
     }
 
+  setCurrentUser(null);
     setUsername('');
     setUserRole('player');
     setIsLoggedIn(false);
@@ -97,6 +101,7 @@ export default function App() {
     setBucket([]);
     setFriends([]);
     setNotificationsCount(0);
+    setSelectedProfile(null);
   };
 
   const loadUserScopedData = async () => {
@@ -296,10 +301,12 @@ export default function App() {
     void (async () => {
       await logoutUser();
       setIsLoggedIn(false);
+      setCurrentUser(null);
       setUsername('');
       setUserRole('player');
       setCurrentView('welcome');
       setActiveTab('store');
+      setSelectedProfile(null);
       setSelectedGame(null);
       setSearchTerm('');
       setShowDashboardOnce(false);
@@ -309,6 +316,31 @@ export default function App() {
       setWalletBalance(0);
       notify('Disconnected from NEON-GRID.', 'info');
     })();
+  };
+
+  const handleTabChange = (tab: TabType) => {
+    if (tab === 'profile') {
+      setSelectedProfile(null);
+    }
+    setActiveTab(tab);
+  };
+
+  const openProfile = async (targetUsername: string) => {
+    try {
+      const matches = await searchUsers(targetUsername);
+      const exactMatch = matches.find((user) => user.username.toLowerCase() === targetUsername.toLowerCase());
+      const selected = exactMatch ?? matches[0] ?? null;
+
+      if (!selected) {
+        notify(`Profile not found for ${targetUsername}.`, 'error');
+        return;
+      }
+
+      setSelectedProfile(selected);
+      setActiveTab('profile');
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Failed to load profile.', 'error');
+    }
   };
 
   const addToLibrary = (gameId: GameId) => {
@@ -530,7 +562,7 @@ export default function App() {
       <Header
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         notificationsCount={notificationsCount}
         bucketCount={bucket.length}
         walletBalance={walletBalance}
@@ -545,7 +577,7 @@ export default function App() {
               <p className="text-sm text-white/70 font-mono mt-1">Database role: <span className="text-neon-cyan font-black uppercase">ADMIN</span> · upload and catalog tools are unlocked.</p>
             </div>
             <button
-              onClick={() => setActiveTab('upload')}
+              onClick={() => handleTabChange('upload')}
               className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest"
             >
               <UploadCloud className="w-4 h-4" />
@@ -558,9 +590,9 @@ export default function App() {
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8 flex gap-8">
         <Sidebar
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           onLogout={handleLogout}
-          onOpenUpload={() => setActiveTab('upload')}
+          onOpenUpload={() => handleTabChange('upload')}
           canUpload={userRole === 'admin'}
         />
 
@@ -569,12 +601,12 @@ export default function App() {
             <AdminDashboard
               username={username}
               onTabChange={(tab) => {
-                setActiveTab(tab);
+                handleTabChange(tab);
                 if (tab !== 'admin') {
                   setShowDashboardOnce(false);
                 }
               }}
-              onOpenUpload={() => setActiveTab('upload')}
+              onOpenUpload={() => handleTabChange('upload')}
             />
           )}
 
@@ -583,7 +615,7 @@ export default function App() {
               <p className="text-xs font-mono tracking-[0.35em] text-neon-magenta uppercase">Access denied</p>
               <h3 className="text-2xl font-black italic tracking-tighter">Admin only</h3>
               <p className="text-sm text-white/60 font-mono">This tab is only visible to admin accounts.</p>
-              <button onClick={() => setActiveTab('store')} className="px-5 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest">Back to store</button>
+              <button onClick={() => handleTabChange('store')} className="px-5 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest">Back to store</button>
             </div>
           )}
 
@@ -592,11 +624,11 @@ export default function App() {
                 username={username}
                 onTabChange={(tab) => {
                   setShowDashboardOnce(false);
-                  setActiveTab(tab);
+                  handleTabChange(tab);
                 }}
                 onOpenUpload={() => {
                   setShowDashboardOnce(false);
-                  setActiveTab('upload');
+                  handleTabChange('upload');
                 }}
               />
             )}
@@ -610,7 +642,7 @@ export default function App() {
                 library={library}
                 onTabChange={(tab) => {
                   setShowDashboardOnce(false);
-                  setActiveTab(tab);
+                  handleTabChange(tab);
                 }}
               />
             )}
@@ -623,7 +655,7 @@ export default function App() {
                 dbError={dbError}
                 onAddToLibrary={addToLibrary}
                 onSelectGame={handleSelectGame}
-                onTabChange={setActiveTab}
+                onTabChange={handleTabChange}
               />
             )}
 
@@ -632,7 +664,7 @@ export default function App() {
                 game={selectedGame}
                 owned={selectedGame ? library.includes(selectedGame.id) : false}
                 inBucket={selectedGame ? bucket.includes(selectedGame.id) : false}
-                onBack={() => setActiveTab('store')}
+                onBack={() => handleTabChange('store')}
                 onAcquire={addToLibrary}
                 onAddToBucket={addToBucket}
                 onDownload={handleDownloadGame}
@@ -643,13 +675,13 @@ export default function App() {
               <Library
                 games={games}
                 library={library}
-                onTabChange={setActiveTab}
+                onTabChange={handleTabChange}
                 onDownload={handleDownloadGame}
               />
             )}
 
           {activeTab === 'friends' && (
-              <Friends friends={friends} onAddFriend={handleAddFriend} />
+              <Friends friends={friends} onAddFriend={handleAddFriend} onOpenProfile={openProfile} />
             )}
 
           {activeTab === 'bucket' && (
@@ -659,7 +691,7 @@ export default function App() {
                 library={library}
                 onRemoveFromBucket={removeFromBucket}
                 onAcquireAll={acquireAll}
-                onTabChange={setActiveTab}
+                onTabChange={handleTabChange}
               />
             )}
 
@@ -685,13 +717,17 @@ export default function App() {
                 friendsCount={friends.length}
                 onLogout={handleLogout}
                 role={userRole}
+                currentUser={currentUser}
+                profile={selectedProfile}
+                onOpenMessages={() => handleTabChange('messages')}
+                onBackToSelf={() => setSelectedProfile(null)}
               />
             )}
 
           {activeTab === 'upload' && userRole === 'admin' && (
               <AdminUpload
                 games={games}
-                onBack={() => setActiveTab('store')}
+                onBack={() => handleTabChange('store')}
               />
             )}
 
@@ -700,7 +736,7 @@ export default function App() {
               <p className="text-xs font-mono tracking-[0.35em] text-neon-magenta uppercase">Access denied</p>
               <h3 className="text-2xl font-black italic tracking-tighter">Admin only</h3>
               <p className="text-sm text-white/60 font-mono">Upload tools are available only to admin accounts. Players can browse, buy, and manage their library.</p>
-              <button onClick={() => setActiveTab('store')} className="px-5 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest">Back to store</button>
+              <button onClick={() => handleTabChange('store')} className="px-5 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest">Back to store</button>
             </div>
           )}
         </div>
@@ -708,10 +744,10 @@ export default function App() {
 
       <MobileNav
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         bucketCount={bucket.length}
         canUpload={userRole === 'admin'}
-        onOpenUpload={() => setActiveTab('upload')}
+        onOpenUpload={() => handleTabChange('upload')}
       />
 
       <footer className="mt-auto py-8 border-t border-white/5 text-center">
@@ -727,7 +763,7 @@ export default function App() {
         open={isPaletteOpen}
         activeTab={activeTab}
         onClose={() => setIsPaletteOpen(false)}
-        onSelectTab={(tab) => setActiveTab(tab)}
+        onSelectTab={(tab) => handleTabChange(tab)}
       />
 
       {toast && (

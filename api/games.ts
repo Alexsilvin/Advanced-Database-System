@@ -99,16 +99,19 @@ export default async function games(req: IncomingMessage, res: ServerResponse): 
   res.setHeader("Content-Type", "application/json");
 
   try {
+    const baseUrl = `http://${req.headers.host || "localhost"}`;
+    const requestUrl = new URL(req.url || "/api/games", baseUrl);
+
     // GET /api/games - list all games
-    if (req.method === "GET") {
+    if (req.method === "GET" && requestUrl.pathname === "/api/games") {
       const result = await p.query("SELECT * FROM games WHERE is_active = true ORDER BY created_at DESC");
       res.statusCode = 200;
       res.end(JSON.stringify(result.rows));
       return;
     }
 
-    // POST /api/games/download-url - get signed download URL for game ROM
-    if (req.method === "POST" && req.url === "/api/games/download-url") {
+    // POST /api/games?action=download-url - get signed download URL for game ROM
+    if (req.method === "POST" && requestUrl.pathname === "/api/games" && requestUrl.searchParams.get("action") === "download-url") {
       const cookies = parseCookies(req.headers.cookie);
       const token = cookies[SESSION_COOKIE_NAME];
 

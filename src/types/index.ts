@@ -49,6 +49,10 @@ export interface UserAccount {
   email?: string | null;
 }
 
+export interface UserSearchResult extends UserAccount {
+  is_friend: boolean;
+}
+
 export interface AuthSessionResponse extends UserAccount {}
 
 export interface RomUploadUrlResponse {

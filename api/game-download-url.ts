@@ -1,4 +1,6 @@
-import handler from "../netlify/functions/game-download-url.mts";
-import { createVercelHandler } from "./_shared/invoke-netlify";
+import type { IncomingMessage, ServerResponse } from "http";
 
-export default createVercelHandler(handler);
+export default async function gameDownloadUrl(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  res.statusCode = 501;
+  res.end(JSON.stringify({ error: "Game download not yet available on Vercel. Please use Netlify deployment." }));
+}

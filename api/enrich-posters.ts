@@ -1,4 +1,6 @@
-import handler from "../netlify/functions/enrich-posters.mts";
-import { createVercelHandler } from "./_shared/invoke-netlify";
+import type { IncomingMessage, ServerResponse } from "http";
 
-export default createVercelHandler(handler);
+export default async function enrichPosters(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  res.statusCode = 501;
+  res.end(JSON.stringify({ error: "Poster enrichment not yet available on Vercel. Please use Netlify deployment." }));
+}

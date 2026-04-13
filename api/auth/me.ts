@@ -1,7 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "http";
 import { Pool } from "pg";
 import crypto from "crypto";
-import { SESSION_COOKIE_NAME } from "../../netlify/functions/_shared/auth.mts";
+
+const SESSION_COOKIE_NAME = "neon-grid-session";
 
 type SessionUser = {
   id: string;

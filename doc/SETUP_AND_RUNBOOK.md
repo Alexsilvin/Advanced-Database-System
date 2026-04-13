@@ -86,12 +86,10 @@ npm run preview
 - If the signed upload works but registration fails, verify `DATABASE_URL` and the target game row
 
 ### 6.5 Deployed app says bucket is not configured
-- Call `GET /api/env-health` on your deployed site.
-- Authenticate with one of these methods:
-	- Sign in as an admin user (session cookie auth), or
-	- Send header `x-admin-key` with value matching `ROM_ADMIN_KEY`.
-- The endpoint returns only variable names and status, never secret values.
-- Resolve any entries under `missingRequired`, then redeploy.
+- Open Vercel Project Settings -> Environment Variables.
+- Verify these variables exist for the target environment: `DATABASE_URL`, `S3_ENDPOINT`, `S3_BUCKET` (or `FILEBASE_BUCKET`), `S3_ACCESS_KEY_ID`, and `S3_SECRET_ACCESS_KEY`.
+- If using `ROM_ADMIN_KEY`, ensure it is set consistently across Preview and Production.
+- Redeploy after updating variables.
 
 ### 6.6 Upload fails with a license length error
 - Keep `licenseType` under 40 characters

@@ -61,9 +61,9 @@ export default function Header({ searchTerm, onSearchChange, onTabChange, notifi
             )}
           </button>
           <button
-            onClick={() => onTabChange('friends')}
+            onClick={() => onTabChange('profile')}
             className="flex items-center gap-2 pl-4 border-l border-white/10"
-            aria-label="Open profile and friends"
+            aria-label="Open profile"
             title="Profile"
           >
             <div className="w-8 h-8 rounded-full bg-neon-magenta/20 border border-neon-magenta/40 flex items-center justify-center">

@@ -1,4 +1,4 @@
-import { AdminOverviewResponse, AppNotification, AuthSessionResponse, DownloadUrlResponse, Friend, Game, PosterEnrichmentResult, RegisterRomResponse, RomUploadUrlResponse, UserAccount, UserRole } from '../types';
+import { AdminOverviewResponse, AppNotification, AuthSessionResponse, Conversation, DirectMessage, DownloadUrlResponse, Friend, Game, GamePurchase, GroupMessage, MessageGroup, PosterEnrichmentResult, RegisterRomResponse, RomUploadUrlResponse, UserAccount, UserRole, Wallet, WalletTransaction } from '../types';
 
 function normalizeGame(raw: unknown): Game | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -425,4 +425,187 @@ export const clearNotifications = async (): Promise<void> => {
   if (!res.ok) {
     throw new Error(data.error || 'FAILED_TO_CLEAR_NOTIFICATIONS');
   }
+};
+
+// ============================================================
+// MESSAGING API HELPERS
+// ============================================================
+
+export const fetchConversations = async (): Promise<Conversation[]> => {
+  const res = await fetch('/api/messages', {
+    credentials: 'include',
+  });
+  const data = await readJsonResponse<Conversation[]>(res, 'FAILED_TO_FETCH_CONVERSATIONS');
+  if (!res.ok) {
+    throw new Error('FAILED_TO_FETCH_CONVERSATIONS');
+  }
+  return data;
+};
+
+export const fetchConversation = async (userId: string): Promise<DirectMessage[]> => {
+  const res = await fetch(`/api/messages?with=${encodeURIComponent(userId)}`, {
+    credentials: 'include',
+  });
+  const data = await readJsonResponse<DirectMessage[]>(res, 'FAILED_TO_FETCH_CONVERSATION');
+  if (!res.ok) {
+    throw new Error('FAILED_TO_FETCH_CONVERSATION');
+  }
+  return data;
+};
+
+export const sendMessage = async (recipientId: string, content: string): Promise<DirectMessage> => {
+  const res = await fetch('/api/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ recipientId, content }),
+  });
+  const data = await readJsonResponse<DirectMessage | { error?: string }>(res, 'FAILED_TO_SEND_MESSAGE');
+  if (!res.ok) {
+    throw new Error(typeof data === 'object' && 'error' in data && typeof (data as any).error === 'string' ? (data as any).error : 'FAILED_TO_SEND_MESSAGE');
+  }
+  return data as DirectMessage;
+};
+
+export const markMessagesAsRead = async (senderId: string): Promise<void> => {
+  const res = await fetch('/api/messages', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ senderId }),
+  });
+  if (!res.ok) {
+    throw new Error('FAILED_TO_MARK_MESSAGES_READ');
+  }
+};
+
+// ============================================================
+// GROUPS API HELPERS
+// ============================================================
+
+export const fetchGroups = async (): Promise<MessageGroup[]> => {
+  const res = await fetch('/api/groups', {
+    credentials: 'include',
+  });
+  const data = await readJsonResponse<MessageGroup[]>(res, 'FAILED_TO_FETCH_GROUPS');
+  if (!res.ok) {
+    throw new Error('FAILED_TO_FETCH_GROUPS');
+  }
+  return data;
+};
+
+export const createGroup = async (name: string, description?: string, isPublic = true): Promise<MessageGroup> => {
+  const res = await fetch('/api/groups', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ name, description, isPublic }),
+  });
+  const data = await readJsonResponse<MessageGroup | { error?: string }>(res, 'FAILED_TO_CREATE_GROUP');
+  if (!res.ok) {
+    throw new Error(typeof data === 'object' && 'error' in data && typeof (data as any).error === 'string' ? (data as any).error : 'FAILED_TO_CREATE_GROUP');
+  }
+  return data as MessageGroup;
+};
+
+export const fetchGroupMessages = async (groupId: string): Promise<GroupMessage[]> => {
+  const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/messages`, {
+    credentials: 'include',
+  });
+  const data = await readJsonResponse<GroupMessage[]>(res, 'FAILED_TO_FETCH_GROUP_MESSAGES');
+  if (!res.ok) {
+    throw new Error('FAILED_TO_FETCH_GROUP_MESSAGES');
+  }
+  return data;
+};
+
+export const sendGroupMessage = async (groupId: string, content: string): Promise<GroupMessage> => {
+  const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ content }),
+  });
+  const data = await readJsonResponse<GroupMessage | { error?: string }>(res, 'FAILED_TO_SEND_GROUP_MESSAGE');
+  if (!res.ok) {
+    throw new Error(typeof data === 'object' && 'error' in data && typeof (data as any).error === 'string' ? (data as any).error : 'FAILED_TO_SEND_GROUP_MESSAGE');
+  }
+  return data as GroupMessage;
+};
+
+export const addGroupMember = async (groupId: string, userId: string): Promise<void> => {
+  const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/members`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ userId }),
+  });
+  if (!res.ok) {
+    throw new Error('FAILED_TO_ADD_GROUP_MEMBER');
+  }
+};
+
+// ============================================================
+// WALLET API HELPERS
+// ============================================================
+
+export const fetchWallet = async (): Promise<Wallet> => {
+  const res = await fetch('/api/wallet', {
+    credentials: 'include',
+  });
+  const data = await readJsonResponse<Wallet>(res, 'FAILED_TO_FETCH_WALLET');
+  if (!res.ok) {
+    throw new Error('FAILED_TO_FETCH_WALLET');
+  }
+  return data;
+};
+
+export const topupWallet = async (amount: number, paymentMethodId?: string, description?: string): Promise<{ transaction: WalletTransaction; newBalance: number }> => {
+  const res = await fetch('/api/wallet/topup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ amount, paymentMethodId, description }),
+  });
+  const data = await readJsonResponse<{ transaction: WalletTransaction; newBalance: number } | { error?: string }>(res, 'FAILED_TO_TOPUP_WALLET');
+  if (!res.ok) {
+    throw new Error(typeof data === 'object' && 'error' in data && typeof (data as any).error === 'string' ? (data as any).error : 'FAILED_TO_TOPUP_WALLET');
+  }
+  return data as { transaction: WalletTransaction; newBalance: number };
+};
+
+export const fetchWalletTransactions = async (limit = 50, offset = 0): Promise<WalletTransaction[]> => {
+  const res = await fetch(`/api/wallet/transactions?limit=${limit}&offset=${offset}`, {
+    credentials: 'include',
+  });
+  const data = await readJsonResponse<WalletTransaction[]>(res, 'FAILED_TO_FETCH_TRANSACTIONS');
+  if (!res.ok) {
+    throw new Error('FAILED_TO_FETCH_TRANSACTIONS');
+  }
+  return data;
+};
+
+export const purchaseGame = async (gameId: string, price: number): Promise<{ purchase: GamePurchase; newBalance: number }> => {
+  const res = await fetch('/api/wallet/purchase', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ gameId, price }),
+  });
+  const data = await readJsonResponse<{ purchase: GamePurchase; newBalance: number } | { error?: string }>(res, 'FAILED_TO_PURCHASE_GAME');
+  if (!res.ok) {
+    throw new Error(typeof data === 'object' && 'error' in data && typeof (data as any).error === 'string' ? (data as any).error : 'FAILED_TO_PURCHASE_GAME');
+  }
+  return data as { purchase: GamePurchase; newBalance: number };
+};
+
+export const fetchPurchaseHistory = async (): Promise<GamePurchase[]> => {
+  const res = await fetch('/api/wallet/purchases', {
+    credentials: 'include',
+  });
+  const data = await readJsonResponse<GamePurchase[]>(res, 'FAILED_TO_FETCH_PURCHASE_HISTORY');
+  if (!res.ok) {
+    throw new Error('FAILED_TO_FETCH_PURCHASE_HISTORY');
+  }
+  return data;
 };

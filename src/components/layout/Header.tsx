@@ -1,6 +1,7 @@
 import React from 'react';
 import { Search, Bell, User, Cpu, ShoppingCart } from 'lucide-react';
 import { TabType } from '../../types';
+import BalanceIcon from '../ui/BalanceIcon';
 
 interface HeaderProps {
   searchTerm: string;
@@ -8,10 +9,11 @@ interface HeaderProps {
   onTabChange: (tab: TabType) => void;
   notificationsCount: number;
   bucketCount: number;
+  walletBalance?: number;
   username?: string;
 }
 
-export default function Header({ searchTerm, onSearchChange, onTabChange, notificationsCount, bucketCount, username }: HeaderProps) {
+export default function Header({ searchTerm, onSearchChange, onTabChange, notificationsCount, bucketCount, walletBalance = 0, username }: HeaderProps) {
   return (
     <header className="border-b border-neon-cyan/20 bg-black/80 backdrop-blur-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -36,6 +38,7 @@ export default function Header({ searchTerm, onSearchChange, onTabChange, notifi
         </div>
 
         <div className="flex items-center gap-4">
+          <BalanceIcon balance={walletBalance} onClick={() => onTabChange('wallet')} />
           <button
             onClick={() => onTabChange('notifications')}
             className="p-2 hover:bg-white/5 rounded-full relative"

@@ -98,7 +98,7 @@ export interface PosterEnrichmentResult {
   minConfidence: number;
 }
 
-export type TabType = 'admin' | 'store' | 'library' | 'friends' | 'bucket' | 'notifications' | 'game-detail' | 'profile' | 'upload';
+export type TabType = 'admin' | 'store' | 'library' | 'friends' | 'bucket' | 'notifications' | 'messages' | 'groups' | 'wallet' | 'game-detail' | 'profile' | 'upload';
 
 export type FriendStatus = 'online' | 'offline' | 'playing';
 
@@ -115,4 +115,87 @@ export interface AppNotification {
   message: string;
   time: string;
   read: boolean;
+}
+
+// Messaging Types
+export interface DirectMessage {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+  read_at?: string;
+  sender_username?: string;
+  recipient_username?: string;
+}
+
+export interface Conversation {
+  other_user_id: string;
+  username: string;
+  avatar?: string;
+  last_message: string;
+  last_message_at: string;
+  unread_count: number;
+}
+
+export interface MessageGroup {
+  id: string;
+  name: string;
+  description?: string;
+  is_public: boolean;
+  creator_id: string;
+  creator_username?: string;
+  member_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GroupMessage {
+  id: string;
+  group_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  sender_username?: string;
+}
+
+// Wallet/Payment Types
+export interface Wallet {
+  id: string;
+  user_id: string;
+  balance: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WalletTransaction {
+  id: string;
+  user_id: string;
+  payment_method_id?: string;
+  transaction_type: 'topup' | 'purchase' | 'refund' | 'admin_credit';
+  amount: number;
+  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GamePurchase {
+  id: string;
+  user_id: string;
+  game_id: string;
+  price_paid: number;
+  purchased_at: string;
+}
+
+export interface PaymentMethod {
+  id: string;
+  user_id: string;
+  type: 'credit_card' | 'paypal' | 'debit_card';
+  provider: string;
+  last_four?: string;
+  is_default: boolean;
+  is_active: boolean;
+  created_at: string;
 }

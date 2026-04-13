@@ -70,6 +70,7 @@ export default function App() {
   const [notificationsCount, setNotificationsCount] = useState(0);
   const [walletBalance, setWalletBalance] = useState(0);
   const [selectedProfile, setSelectedProfile] = useState<UserAccount | null>(null);
+  const [messageTargetUserId, setMessageTargetUserId] = useState<string | null>(null);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [loading] = useState(false);
     const [dbError, setDbError] = useState<string | null>(null);
@@ -102,6 +103,7 @@ export default function App() {
     setFriends([]);
     setNotificationsCount(0);
     setSelectedProfile(null);
+    setMessageTargetUserId(null);
   };
 
   const loadUserScopedData = async () => {
@@ -307,6 +309,7 @@ export default function App() {
       setCurrentView('welcome');
       setActiveTab('store');
       setSelectedProfile(null);
+      setMessageTargetUserId(null);
       setSelectedGame(null);
       setSearchTerm('');
       setShowDashboardOnce(false);
@@ -321,6 +324,9 @@ export default function App() {
   const handleTabChange = (tab: TabType) => {
     if (tab === 'profile') {
       setSelectedProfile(null);
+    }
+    if (tab !== 'messages') {
+      setMessageTargetUserId(null);
     }
     setActiveTab(tab);
   };
@@ -341,6 +347,12 @@ export default function App() {
     } catch (error) {
       notify(error instanceof Error ? error.message : 'Failed to load profile.', 'error');
     }
+  };
+
+  const openMessageWithUser = (target: { id: string; username: string }) => {
+    setMessageTargetUserId(target.id);
+    setActiveTab('messages');
+    notify(`Opened chat with ${target.username}.`, 'info');
   };
 
   const addToLibrary = (gameId: GameId) => {
@@ -681,7 +693,12 @@ export default function App() {
             )}
 
           {activeTab === 'friends' && (
-              <Friends friends={friends} onAddFriend={handleAddFriend} onOpenProfile={openProfile} />
+              <Friends
+                friends={friends}
+                onAddFriend={handleAddFriend}
+                onOpenProfile={openProfile}
+                onStartMessage={openMessageWithUser}
+              />
             )}
 
           {activeTab === 'bucket' && (
@@ -700,7 +717,7 @@ export default function App() {
             )}
 
           {activeTab === 'messages' && (
-              <Messages userId={username} />
+              <Messages currentUserId={currentUser?.id || ''} initialSelectedUserId={messageTargetUserId} />
             )}
 
           {activeTab === 'groups' && (
@@ -719,7 +736,13 @@ export default function App() {
                 role={userRole}
                 currentUser={currentUser}
                 profile={selectedProfile}
-                onOpenMessages={() => handleTabChange('messages')}
+                onOpenMessages={() => {
+                  if (selectedProfile?.id) {
+                    openMessageWithUser({ id: selectedProfile.id, username: selectedProfile.username });
+                    return;
+                  }
+                  handleTabChange('messages');
+                }}
                 onBackToSelf={() => setSelectedProfile(null)}
               />
             )}

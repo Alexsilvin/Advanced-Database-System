@@ -4,7 +4,7 @@ import {
   Terminal, LayoutGrid, List, ShieldCheck, Clock,
   Heart, Download, Server, Lock, User
 } from 'lucide-react';
-import { Game, GameId, TabType, Friend } from '../types';
+import { Game, GameId, TabType } from '../types';
 import LibraryItem from '../components/game/LibraryItem';
 
 const LIBRARY_PREFS_KEY = 'neon-grid:library-prefs';
@@ -18,13 +18,6 @@ interface LibraryProps {
 
 type FilterType = 'all' | 'recent' | 'favorites' | 'installed' | 'collections';
 type SortType = 'recent' | 'name' | 'hours';
-
-const mockFriends: Friend[] = [
-  { username: 'VOID_WALKER', status: 'playing', game: 'NEON STRIKE' },
-  { username: 'GLITCH_GHOST', status: 'online' },
-  { username: 'CYBER_PUNK_88', status: 'offline' },
-  { username: 'NULL_POINTER', status: 'online' },
-];
 
 const categoryFilters: { key: FilterType; label: string; icon: React.ReactNode }[] = [
   { key: 'all',         label: 'All Games',       icon: <LayoutGrid className="w-4 h-4" /> },
@@ -282,42 +275,14 @@ export default function Library({ games, library, onTabChange, onDownload }: Lib
           <h4 className="text-[9px] text-white/30 uppercase font-bold mb-4 tracking-widest">
             GRID_CONTACTS
           </h4>
-          <div className="flex flex-col gap-4">
-            {mockFriends.map(friend => (
-              <div
-                key={friend.username}
-                className={`flex items-center gap-3 ${friend.status === 'offline' ? 'opacity-50' : ''}`}
-              >
-                <div className="relative shrink-0">
-                  <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-                    <User className="w-4 h-4 text-white/40" />
-                  </div>
-                  <div
-                    className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-dark-void ${
-                      friend.status === 'playing'
-                        ? 'bg-neon-cyan shadow-[0_0_6px_rgba(0,243,255,0.8)]'
-                        : friend.status === 'online'
-                        ? 'bg-green-500'
-                        : 'bg-white/20'
-                    }`}
-                  />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold truncate">{friend.username}</p>
-                  <p
-                    className={`text-[10px] font-mono truncate ${
-                      friend.status === 'playing'
-                        ? 'text-neon-cyan'
-                        : friend.status === 'online'
-                        ? 'text-green-400'
-                        : 'text-white/30'
-                    }`}
-                  >
-                    {friend.status === 'playing' ? `Playing: ${friend.game}` : friend.status.toUpperCase()}
-                  </p>
-                </div>
-              </div>
-            ))}
+          <div className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-white/10 bg-white/5">
+            <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+              <User className="w-4 h-4 text-white/40" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold truncate text-white/70">No contacts yet</p>
+              <p className="text-[10px] font-mono truncate text-white/35">Friend activity will appear here.</p>
+            </div>
           </div>
         </div>
 

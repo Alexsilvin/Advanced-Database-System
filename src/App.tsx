@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthSessionResponse, Game, GameId, TabType } from './types';
-import { fetchCurrentUser, fetchGames, loginUser, logoutUser, requestGameDownloadUrl, signupUser } from './services/api';
+import { addBucketItem, addFriend, fetchBucketItems, fetchCurrentUser, fetchFriends, fetchGames, fetchNotifications, loginUser, logoutUser, removeBucketItem, replaceBucketItems, requestGameDownloadUrl, signupUser } from './services/api';
 import { useGlitchEffect } from './hooks/useGlitchEffect';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
@@ -61,9 +61,11 @@ export default function App() {
   const [games, setGames] = useState<Game[]>([]);
   const [library, setLibrary] = useState<GameId[]>(() => readStorage<Array<string | number>>(LS_KEYS.library, []).map((id) => String(id)));
   const [bucket, setBucket] = useState<GameId[]>(() => readStorage<Array<string | number>>(LS_KEYS.bucket, []).map((id) => String(id)));
+  const [friends, setFriends] = useState<Array<{ username: string; status: 'online' | 'offline' | 'playing'; game?: string }>>([]);
+  const [notificationsCount, setNotificationsCount] = useState(0);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [loading] = useState(false);
-  const [dbError, setDbError] = useState<string | null>(null);
+    const [dbError, setDbError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [toast, setToast] = useState<ToastState | null>(null);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
@@ -87,6 +89,27 @@ export default function App() {
     setIsLoggedIn(false);
     setCurrentView('welcome');
     setShowDashboardOnce(false);
+    setBucket([]);
+    setFriends([]);
+    setNotificationsCount(0);
+  };
+
+  const loadUserScopedData = async () => {
+    try {
+      const [bucketIds, friendsList, notifications] = await Promise.all([
+        fetchBucketItems(),
+        fetchFriends(),
+        fetchNotifications(),
+      ]);
+
+      setBucket(bucketIds);
+      setFriends(friendsList);
+      setNotificationsCount(notifications.filter((item) => !item.read).length);
+    } catch {
+      setBucket([]);
+      setFriends([]);
+      setNotificationsCount(0);
+    }
   };
 
   useEffect(() => {
@@ -102,6 +125,9 @@ export default function App() {
         if (!isMounted) return;
 
         applySessionUser(sessionUser);
+        if (sessionUser) {
+          await loadUserScopedData();
+        }
       } catch {
         if (!isMounted) return;
         applySessionUser(null);
@@ -129,6 +155,9 @@ export default function App() {
         try {
           const sessionUser = await fetchCurrentUser();
           applySessionUser(sessionUser, true);
+          if (sessionUser) {
+            await loadUserScopedData();
+          }
         } catch {
           // Ignore transient network errors during background resync.
         }
@@ -143,6 +172,23 @@ export default function App() {
       document.removeEventListener('visibilitychange', resyncSession);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const timer = window.setInterval(() => {
+      void (async () => {
+        try {
+          const notifications = await fetchNotifications();
+          setNotificationsCount(notifications.filter((item) => !item.read).length);
+        } catch {
+          // Ignore polling failures.
+        }
+      })();
+    }, 15000);
+
+    return () => window.clearInterval(timer);
+  }, [isLoggedIn]);
 
   useEffect(() => {
     localStorage.setItem(LS_KEYS.activeTab, JSON.stringify(activeTab));
@@ -246,6 +292,9 @@ export default function App() {
       setSelectedGame(null);
       setSearchTerm('');
       setShowDashboardOnce(false);
+      setBucket([]);
+      setFriends([]);
+      setNotificationsCount(0);
       notify('Disconnected from NEON-GRID.', 'info');
     })();
   };
@@ -259,53 +308,86 @@ export default function App() {
       notify(`${gameName} is already in your library.`, 'info');
     }
     setBucket((prev) => prev.filter((id) => id !== gameId));
+    void removeBucketItem(gameId).catch(() => undefined);
   };
 
   const addToBucket = (gameId: GameId) => {
-    const gameName = games.find((g) => g.id === gameId)?.title ?? 'Game';
-    if (library.includes(gameId)) {
-      notify(`${gameName} is already owned.`, 'info');
-      return;
-    }
+    void (async () => {
+      const gameName = games.find((g) => g.id === gameId)?.title ?? 'Game';
+      if (library.includes(gameId)) {
+        notify(`${gameName} is already owned.`, 'info');
+        return;
+      }
 
-    if (bucket.includes(gameId)) {
-      notify(`${gameName} is already in your bucket.`, 'info');
-      return;
-    }
+      if (bucket.includes(gameId)) {
+        notify(`${gameName} is already in your bucket.`, 'info');
+        return;
+      }
 
-    if (!bucket.includes(gameId) && !library.includes(gameId)) {
-      setBucket((prev) => [...prev, gameId]);
-      notify(`${gameName} queued in acquisition bucket.`, 'success');
-    }
+      try {
+        await addBucketItem(gameId);
+        setBucket((prev) => [...prev, gameId]);
+        notify(`${gameName} queued in acquisition bucket.`, 'success');
+      } catch (error) {
+        notify(error instanceof Error ? error.message : 'Failed to add game to bucket.', 'error');
+      }
+    })();
   };
 
   const removeFromBucket = (gameId: GameId) => {
-    const gameName = games.find((g) => g.id === gameId)?.title ?? 'Game';
+    void (async () => {
+      const gameName = games.find((g) => g.id === gameId)?.title ?? 'Game';
 
-    setBucket((prev) => {
-      const next = prev.filter((id) => id !== gameId);
-      return next;
-    });
+      try {
+        await removeBucketItem(gameId);
+        setBucket((prev) => prev.filter((id) => id !== gameId));
 
-    notify(`${gameName} removed from bucket.`, 'info', {
-      label: 'UNDO',
-      onAction: () => {
-        setBucket((prev) => (prev.includes(gameId) ? prev : [...prev, gameId]));
-        setToast(null);
-      },
-    });
+        notify(`${gameName} removed from bucket.`, 'info', {
+          label: 'UNDO',
+          onAction: () => {
+            void (async () => {
+              try {
+                await addBucketItem(gameId);
+                setBucket((prev) => (prev.includes(gameId) ? prev : [...prev, gameId]));
+                setToast(null);
+              } catch {
+                notify('Failed to undo bucket removal.', 'error');
+              }
+            })();
+          },
+        });
+      } catch (error) {
+        notify(error instanceof Error ? error.message : 'Failed to remove game from bucket.', 'error');
+      }
+    })();
   };
 
   const acquireAll = () => {
-    if (bucket.length === 0) {
-      notify('Your bucket is empty.', 'info');
-      return;
-    }
+    void (async () => {
+      if (bucket.length === 0) {
+        notify('Your bucket is empty.', 'info');
+        return;
+      }
 
-    const newIds = bucket.filter((id) => !library.includes(id));
-    setLibrary((prev) => [...prev, ...newIds]);
-    setBucket([]);
-    notify(`${newIds.length} game(s) acquired successfully.`, 'success');
+      const newIds = bucket.filter((id) => !library.includes(id));
+      setLibrary((prev) => [...prev, ...newIds]);
+
+      try {
+        await replaceBucketItems([]);
+        setBucket([]);
+      } catch {
+        notify('Purchase completed locally, but bucket sync failed.', 'error');
+      }
+
+      notify(`${newIds.length} game(s) acquired successfully.`, 'success');
+    })();
+  };
+
+  const handleAddFriend = async (friendUsername: string) => {
+    await addFriend(friendUsername);
+    const [friendsList, notifications] = await Promise.all([fetchFriends(), fetchNotifications()]);
+    setFriends(friendsList);
+    setNotificationsCount(notifications.filter((item) => !item.read).length);
   };
 
   const filteredGames = Array.isArray(games)
@@ -367,6 +449,7 @@ export default function App() {
             setIsLoggedIn(true);
             setCurrentView('app');
             setShowDashboardOnce(true);
+            await loadUserScopedData();
             notify(`Welcome to NEON-GRID, ${createdUser.username}!`, 'success');
             loadGames();
           }}
@@ -399,6 +482,7 @@ export default function App() {
             setCurrentView('app');
             setActiveTab(sessionUser.role === 'admin' ? 'admin' : 'store');
             setShowDashboardOnce(sessionUser.role === 'admin');
+            await loadUserScopedData();
             notify(sessionUser.role === 'admin' ? 'Admin access granted.' : 'Connected to NEON-GRID.', 'success');
             loadGames();
           }}
@@ -435,7 +519,7 @@ export default function App() {
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         onTabChange={setActiveTab}
-        notificationsCount={2}
+        notificationsCount={notificationsCount}
         bucketCount={bucket.length}
         username={username}
       />
@@ -552,7 +636,7 @@ export default function App() {
             )}
 
           {activeTab === 'friends' && (
-              <Friends />
+              <Friends friends={friends} onAddFriend={handleAddFriend} />
             )}
 
           {activeTab === 'bucket' && (
@@ -567,13 +651,13 @@ export default function App() {
             )}
 
           {activeTab === 'notifications' && (
-              <Notifications />
+              <Notifications onUnreadCountChange={setNotificationsCount} />
             )}
 
           {activeTab === 'profile' && (
               <Profile
                 libraryCount={library.length}
-                friendsCount={4}
+                friendsCount={friends.length}
                 onLogout={handleLogout}
                 role={userRole}
               />

@@ -17,9 +17,9 @@ export default function Dashboard({ username, libraryCount, bucketCount, games, 
   const recentGames = games.filter((g) => library.includes(g.id)).slice(0, 3);
   const stats = [
     { icon: Gamepad2, label: 'GAMES OWNED', value: libraryCount, color: 'text-neon-cyan' },
-    { icon: Users, label: 'FRIENDS ONLINE', value: 3, color: 'text-neon-magenta' },
+    { icon: Users, label: 'FRIENDS ONLINE', value: 0, color: 'text-neon-magenta' },
     { icon: ShoppingCart, label: 'IN BUCKET', value: bucketCount, color: 'text-yellow-400' },
-    { icon: TrendingUp, label: 'TOTAL PLAYTIME', value: '42H', color: 'text-green-400' },
+    { icon: TrendingUp, label: 'TOTAL PLAYTIME', value: '0H', color: 'text-green-400' },
   ];
 
   return (

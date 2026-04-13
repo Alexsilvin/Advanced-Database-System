@@ -107,3 +107,12 @@ export interface Friend {
   status: FriendStatus;
   game?: string;
 }
+
+export interface AppNotification {
+  id: string;
+  type: 'friend' | 'system' | 'sale' | 'game';
+  title: string;
+  message: string;
+  time: string;
+  read: boolean;
+}

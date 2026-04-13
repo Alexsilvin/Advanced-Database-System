@@ -1,4 +1,4 @@
-import { AdminOverviewResponse, AuthSessionResponse, DownloadUrlResponse, Game, PosterEnrichmentResult, RegisterRomResponse, RomUploadUrlResponse, UserAccount, UserRole } from '../types';
+import { AdminOverviewResponse, AppNotification, AuthSessionResponse, DownloadUrlResponse, Friend, Game, PosterEnrichmentResult, RegisterRomResponse, RomUploadUrlResponse, UserAccount, UserRole } from '../types';
 
 function normalizeGame(raw: unknown): Game | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -302,4 +302,127 @@ export const runPosterEnrichment = async (payload?: {
   }
 
   return data as PosterEnrichmentResult;
+};
+
+export const fetchBucketItems = async (): Promise<string[]> => {
+  const res = await fetch('/api/bucket', { credentials: 'include' });
+  const data = await readJsonResponse<{ error?: string; gameIds?: string[] }>(res, 'FAILED_TO_FETCH_BUCKET');
+  if (!res.ok) {
+    throw new Error(data.error || 'FAILED_TO_FETCH_BUCKET');
+  }
+  return Array.isArray(data.gameIds) ? data.gameIds.map((id) => String(id)) : [];
+};
+
+export const addBucketItem = async (gameId: string): Promise<void> => {
+  const res = await fetch('/api/bucket', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ gameId }),
+  });
+  const data = await readJsonResponse<{ error?: string; ok?: boolean }>(res, 'FAILED_TO_ADD_BUCKET_ITEM');
+  if (!res.ok) {
+    throw new Error(data.error || 'FAILED_TO_ADD_BUCKET_ITEM');
+  }
+};
+
+export const removeBucketItem = async (gameId: string): Promise<void> => {
+  const res = await fetch(`/api/bucket?gameId=${encodeURIComponent(gameId)}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  const data = await readJsonResponse<{ error?: string; ok?: boolean }>(res, 'FAILED_TO_REMOVE_BUCKET_ITEM');
+  if (!res.ok) {
+    throw new Error(data.error || 'FAILED_TO_REMOVE_BUCKET_ITEM');
+  }
+};
+
+export const replaceBucketItems = async (gameIds: string[]): Promise<void> => {
+  const res = await fetch('/api/bucket', {
+    method: 'PUT',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ gameIds }),
+  });
+  const data = await readJsonResponse<{ error?: string; ok?: boolean }>(res, 'FAILED_TO_SYNC_BUCKET');
+  if (!res.ok) {
+    throw new Error(data.error || 'FAILED_TO_SYNC_BUCKET');
+  }
+};
+
+export const fetchFriends = async (): Promise<Friend[]> => {
+  const res = await fetch('/api/friends', { credentials: 'include' });
+  const data = await readJsonResponse<{ error?: string; friends?: Array<{ username: string; status?: Friend['status']; game?: string }> }>(res, 'FAILED_TO_FETCH_FRIENDS');
+  if (!res.ok) {
+    throw new Error(data.error || 'FAILED_TO_FETCH_FRIENDS');
+  }
+
+  if (!Array.isArray(data.friends)) return [];
+
+  return data.friends.map((friend) => ({
+    username: friend.username,
+    status: friend.status ?? 'offline',
+    game: friend.game,
+  }));
+};
+
+export const addFriend = async (username: string): Promise<void> => {
+  const res = await fetch('/api/friends', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ username }),
+  });
+  const data = await readJsonResponse<{ error?: string; ok?: boolean }>(res, 'FAILED_TO_ADD_FRIEND');
+  if (!res.ok) {
+    throw new Error(data.error || 'FAILED_TO_ADD_FRIEND');
+  }
+};
+
+export const fetchNotifications = async (): Promise<AppNotification[]> => {
+  const res = await fetch('/api/notifications', { credentials: 'include' });
+  const data = await readJsonResponse<{ error?: string; notifications?: AppNotification[] }>(res, 'FAILED_TO_FETCH_NOTIFICATIONS');
+  if (!res.ok) {
+    throw new Error(data.error || 'FAILED_TO_FETCH_NOTIFICATIONS');
+  }
+  return Array.isArray(data.notifications) ? data.notifications : [];
+};
+
+export const markAllNotificationsRead = async (): Promise<void> => {
+  const res = await fetch('/api/notifications?action=mark-all-read', {
+    method: 'PATCH',
+    credentials: 'include',
+  });
+  const data = await readJsonResponse<{ error?: string; ok?: boolean }>(res, 'FAILED_TO_MARK_NOTIFICATIONS_READ');
+  if (!res.ok) {
+    throw new Error(data.error || 'FAILED_TO_MARK_NOTIFICATIONS_READ');
+  }
+};
+
+export const dismissNotification = async (id: string): Promise<void> => {
+  const res = await fetch(`/api/notifications?id=${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  const data = await readJsonResponse<{ error?: string; ok?: boolean }>(res, 'FAILED_TO_DISMISS_NOTIFICATION');
+  if (!res.ok) {
+    throw new Error(data.error || 'FAILED_TO_DISMISS_NOTIFICATION');
+  }
+};
+
+export const clearNotifications = async (): Promise<void> => {
+  const res = await fetch('/api/notifications', {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  const data = await readJsonResponse<{ error?: string; ok?: boolean }>(res, 'FAILED_TO_CLEAR_NOTIFICATIONS');
+  if (!res.ok) {
+    throw new Error(data.error || 'FAILED_TO_CLEAR_NOTIFICATIONS');
+  }
 };

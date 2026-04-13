@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
-  User, Cpu, Gamepad2, Clock, Users, Trophy, Star,
+  User, Cpu, Gamepad2, Clock, Users, Trophy,
   Edit3, Bell, BellOff, LogOut, Shield, Zap, Lock, ChevronRight
 } from 'lucide-react';
 
@@ -12,22 +12,25 @@ interface ProfileProps {
   role: 'admin' | 'player';
 }
 
-const recentActivity = [
-  { title: 'NEON STRIKE', lastPlayed: '2h ago', hours: 128, icon: '⚡' },
-  { title: 'VOID PROTOCOL', lastPlayed: 'Yesterday', hours: 47, icon: '☄️' },
-  { title: 'CYBER REALM X', lastPlayed: '3 days ago', hours: 89, icon: '🌐' },
-  { title: 'GRID RUNNERS', lastPlayed: '1 week ago', hours: 22, icon: '🏃' },
-  { title: 'DARK NODE', lastPlayed: '2 weeks ago', hours: 61, icon: '🌑' },
-];
+type RecentActivityItem = {
+  title: string;
+  lastPlayed: string;
+  hours: number;
+  icon: string;
+};
 
-const achievements = [
-  { id: 1, name: 'GRID_MASTER', desc: 'Own 10+ games', icon: Shield, unlocked: true, rarity: 'RARE' },
-  { id: 2, name: 'NEON_HUNTER', desc: 'Play 5 hours in a day', icon: Zap, unlocked: true, rarity: 'COMMON' },
-  { id: 3, name: 'VOID_WALKER', desc: '100h total playtime', icon: Star, unlocked: true, rarity: 'EPIC' },
-  { id: 4, name: 'FIRST_BLOOD', desc: 'First game acquired', icon: Trophy, unlocked: true, rarity: 'COMMON' },
-  { id: 5, name: 'GHOST_PROTOCOL', desc: 'Invite 5 friends', icon: Users, unlocked: false, rarity: 'RARE' },
-  { id: 6, name: 'CYBER_GOD', desc: 'Platinum all games', icon: Lock, unlocked: false, rarity: 'LEGENDARY' },
-];
+type AchievementItem = {
+  id: number;
+  name: string;
+  desc: string;
+  icon: React.ComponentType<{ className?: string }>;
+  unlocked: boolean;
+  rarity: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY';
+};
+
+const recentActivity: RecentActivityItem[] = [];
+
+const achievements: AchievementItem[] = [];
 
 const rarityColor: Record<string, string> = {
   COMMON: 'text-white/60 border-white/20 bg-white/5',
@@ -42,7 +45,7 @@ export default function Profile({ libraryCount, friendsCount, onLogout, role }: 
   const [displayName, setDisplayName] = useState('SYLVESTRE_01');
 
   const totalHours = recentActivity.reduce((sum, g) => sum + g.hours, 0);
-  const unlockedCount = achievements.filter(a => a.unlocked).length;
+  const unlockedCount = achievements.filter((a) => a.unlocked).length;
 
   return (
     <motion.div
@@ -147,27 +150,33 @@ export default function Profile({ libraryCount, friendsCount, onLogout, role }: 
             <Cpu className="w-4 h-4 text-neon-cyan" />
             <h3 className="text-lg font-black italic tracking-tighter">RECENT_ACTIVITY</h3>
           </div>
-          <div className="space-y-2">
-            {recentActivity.map((game, i) => (
-              <motion.div
-                key={game.title}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="flex items-center gap-4 p-3 rounded-xl border border-white/10 bg-white/5 hover:border-neon-cyan/30 hover:bg-neon-cyan/5 transition-all group"
-              >
-                <span className="text-2xl">{game.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-black italic tracking-tighter truncate">{game.title}</p>
-                  <p className="text-[10px] font-mono text-white/40">{game.hours}h played</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[10px] font-mono text-white/30">{game.lastPlayed}</p>
-                  <ChevronRight className="w-3 h-3 text-white/20 group-hover:text-neon-cyan transition-colors ml-auto mt-0.5" />
-                </div>
-              </motion.div>
-            ))}
-          </div>
+          {recentActivity.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-white/10 bg-white/5 p-5 text-center">
+              <p className="text-xs font-mono text-white/40">NO RECENT ACTIVITY</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {recentActivity.map((game, i) => (
+                <motion.div
+                  key={game.title}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="flex items-center gap-4 p-3 rounded-xl border border-white/10 bg-white/5 hover:border-neon-cyan/30 hover:bg-neon-cyan/5 transition-all group"
+                >
+                  <span className="text-2xl">{game.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-black italic tracking-tighter truncate">{game.title}</p>
+                    <p className="text-[10px] font-mono text-white/40">{game.hours}h played</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[10px] font-mono text-white/30">{game.lastPlayed}</p>
+                    <ChevronRight className="w-3 h-3 text-white/20 group-hover:text-neon-cyan transition-colors ml-auto mt-0.5" />
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── ACHIEVEMENTS ── */}
@@ -177,33 +186,39 @@ export default function Profile({ libraryCount, friendsCount, onLogout, role }: 
             <h3 className="text-lg font-black italic tracking-tighter">ACHIEVEMENTS</h3>
             <span className="ml-auto text-[10px] font-mono text-white/40">{unlockedCount}/{achievements.length} UNLOCKED</span>
           </div>
-          <div className="grid grid-cols-1 gap-2">
-            {achievements.map((ach, i) => (
-              <motion.div
-                key={ach.id}
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                  ach.unlocked
-                    ? 'border-white/10 bg-white/5 hover:border-neon-cyan/30'
-                    : 'border-white/5 bg-white/5 opacity-50'
-                }`}
-              >
-                <div className={`p-2 rounded-lg border ${rarityColor[ach.rarity]}`}>
-                  <ach.icon className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-black italic tracking-tighter">{ach.name}</p>
-                  <p className="text-[10px] font-mono text-white/40">{ach.desc}</p>
-                </div>
-                <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full border shrink-0 ${rarityColor[ach.rarity]}`}>
-                  {ach.rarity}
-                </span>
-                {!ach.unlocked && <Lock className="w-3 h-3 text-white/20 shrink-0" />}
-              </motion.div>
-            ))}
-          </div>
+          {achievements.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-white/10 bg-white/5 p-5 text-center">
+              <p className="text-xs font-mono text-white/40">NO ACHIEVEMENTS YET</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-2">
+              {achievements.map((ach, i) => (
+                <motion.div
+                  key={ach.id}
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                    ach.unlocked
+                      ? 'border-white/10 bg-white/5 hover:border-neon-cyan/30'
+                      : 'border-white/5 bg-white/5 opacity-50'
+                  }`}
+                >
+                  <div className={`p-2 rounded-lg border ${rarityColor[ach.rarity]}`}>
+                    <ach.icon className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-black italic tracking-tighter">{ach.name}</p>
+                    <p className="text-[10px] font-mono text-white/40">{ach.desc}</p>
+                  </div>
+                  <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full border shrink-0 ${rarityColor[ach.rarity]}`}>
+                    {ach.rarity}
+                  </span>
+                  {!ach.unlocked && <Lock className="w-3 h-3 text-white/20 shrink-0" />}
+                </motion.div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

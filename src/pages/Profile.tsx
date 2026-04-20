@@ -54,6 +54,64 @@ export default function Profile({ libraryCount, friendsCount, onLogout, role, cu
   const viewedUser = profile ?? currentUser;
   const isViewingSelf = !profile || !currentUser || profile.id === currentUser.id;
 
+  // --- Add Friend & Add to Friend Group ---
+  const [addingFriend, setAddingFriend] = useState(false);
+  const [addingToGroup, setAddingToGroup] = useState(false);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<string>("");
+  const [statusMsg, setStatusMsg] = useState<string>("");
+
+  React.useEffect(() => {
+    if (!isViewingSelf && profile) {
+      // Lazy load groups for group picker
+      fetch("/api/groups", { credentials: "include" })
+        .then(r => r.json())
+        .then(data => setGroups(Array.isArray(data) ? data : []))
+        .catch(() => setGroups([]));
+    }
+  }, [isViewingSelf, profile]);
+
+  async function handleAddFriend() {
+    setAddingFriend(true);
+    setStatusMsg("");
+    try {
+      const res = await fetch("/api/friends", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: viewedUser.username }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to add friend");
+      setStatusMsg("Friend added!");
+    } catch (e: any) {
+      setStatusMsg(e.message || "Failed to add friend");
+    } finally {
+      setAddingFriend(false);
+    }
+  }
+
+  async function handleAddToGroup() {
+    if (!selectedGroup) return;
+    setAddingToGroup(true);
+    setStatusMsg("");
+    try {
+      const res = await fetch("/api/add-to-group", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupId: selectedGroup, username: viewedUser.username }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to add to group");
+      setStatusMsg("Added to group!");
+    } catch (e: any) {
+      setStatusMsg(e.message || "Failed to add to group");
+    } finally {
+      setAddingToGroup(false);
+    }
+  }
+
   if (viewedUser && !isViewingSelf) {
     return (
       <motion.div
@@ -76,27 +134,58 @@ export default function Profile({ libraryCount, friendsCount, onLogout, role, cu
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {onOpenMessages && (
+            <div className="flex flex-col gap-2 items-end">
+              <div className="flex gap-2">
                 <button
-                  onClick={() => onOpenMessages(viewedUser.username)}
-                  className="px-4 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest text-xs"
+                  onClick={handleAddFriend}
+                  disabled={addingFriend}
+                  className="px-4 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest text-xs disabled:opacity-60"
                 >
-                  MESSAGE
+                  {addingFriend ? "ADDING..." : "ADD FRIEND"}
                 </button>
-              )}
-              {onBackToSelf && (
-                <button
-                  onClick={onBackToSelf}
-                  className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white font-black italic tracking-widest text-xs"
-                >
-                  BACK_TO_ME
-                </button>
-              )}
+                <div>
+                  <select
+                    value={selectedGroup}
+                    onChange={e => setSelectedGroup(e.target.value)}
+                    className="px-2 py-2 rounded-l border border-neon-magenta/30 bg-white/10 text-xs font-mono text-white"
+                  >
+                    <option value="">Select Group</option>
+                    {groups.map((g: any) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleAddToGroup}
+                    disabled={!selectedGroup || addingToGroup}
+                    className="px-3 py-2 rounded-r bg-neon-magenta text-white font-black italic tracking-widest text-xs disabled:opacity-60"
+                  >
+                    {addingToGroup ? "ADDING..." : "ADD TO GROUP"}
+                  </button>
+                </div>
+              </div>
+              {statusMsg && <div className="text-xs text-neon-cyan font-mono mt-1">{statusMsg}</div>}
+              <div className="flex gap-2 mt-2">
+                {onOpenMessages && (
+                  <button
+                    onClick={() => onOpenMessages(viewedUser.username)}
+                    className="px-4 py-2 rounded-xl bg-neon-cyan text-black font-black italic tracking-widest text-xs"
+                  >
+                    MESSAGE
+                  </button>
+                )}
+                {onBackToSelf && (
+                  <button
+                    onClick={onBackToSelf}
+                    className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white font-black italic tracking-widest text-xs"
+                  >
+                    BACK_TO_ME
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
               <p className="text-[10px] font-mono text-white/40 tracking-widest">USERNAME</p>
               <p className="mt-2 text-sm font-black italic">{viewedUser.username}</p>

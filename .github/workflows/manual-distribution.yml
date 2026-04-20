@@ -1,0 +1,62 @@
+name: Manual Distribution Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      distribution_label:
+        description: Distribution label (example: v0.3.0-beta)
+        required: false
+        default: manual
+      include_sha:
+        description: Include short commit SHA in artifact name
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Compose artifact name
+        id: names
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          LABEL="${{ github.event.inputs.distribution_label }}"
+          if [ "${{ github.event.inputs.include_sha }}" = "true" ]; then
+            echo "artifact=neon-console-app-${LABEL}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          else
+            echo "artifact=neon-console-app-${LABEL}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create zip package
+        run: |
+          mkdir -p package
+          cp -r dist package/dist
+          cd package
+          zip -r "${{ steps.names.outputs.artifact }}.zip" dist
+
+      - name: Upload distribution zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.names.outputs.artifact }}
+          path: package/${{ steps.names.outputs.artifact }}.zip
+          if-no-files-found: error

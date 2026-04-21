@@ -135,7 +135,16 @@ export default async function friends(req: IncomingMessage, res: ServerResponse)
       const searchTerm = requestUrl.searchParams.get("search")?.trim() || "";
 
       if (searchTerm) {
-        const result = await p.query<UserSearchRow>(
+        // Show all users matching the search, with online/offline and friend status
+        const result = await p.query<{
+          id: string;
+          username: string;
+          avatar_url: string | null;
+          role: string;
+          email: string | null;
+          is_friend: boolean;
+          status: 'online' | 'offline';
+        }>(
           `SELECT
              u.id,
              u.username,
@@ -146,7 +155,10 @@ export default async function friends(req: IncomingMessage, res: ServerResponse)
                SELECT 1
                FROM friends f
                WHERE f.user_id = $1 AND f.friend_id = u.id AND f.status = 'accepted'
-             ) AS is_friend
+             ) AS is_friend,
+             CASE WHEN EXISTS (
+               SELECT 1 FROM auth_sessions s2 WHERE s2.user_id = u.id AND s2.expires_at > NOW()
+             ) THEN 'online' ELSE 'offline' END AS status
            FROM users u
            WHERE u.id <> $1
              AND (
@@ -156,10 +168,9 @@ export default async function friends(req: IncomingMessage, res: ServerResponse)
            ORDER BY
              CASE WHEN u.username ILIKE $2 || '%' THEN 0 ELSE 1 END,
              u.username ASC
-           LIMIT 8`,
+           LIMIT 12`,
           [user.id, searchTerm.slice(0, 40)]
         );
-
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify({ users: result.rows }));
@@ -252,29 +263,55 @@ export default async function friends(req: IncomingMessage, res: ServerResponse)
       }
       const friend = target.rows[0];
       await p.query(`BEGIN`);
-      await p.query(
-        `INSERT INTO friends (user_id, friend_id, status)
-         VALUES ($1, $2, 'accepted')
-         ON CONFLICT (user_id, friend_id)
-         DO UPDATE SET status = EXCLUDED.status`,
+      // Check if already friends or pending
+      const existing = await p.query<{ status: string }>(
+        `SELECT status FROM friends WHERE user_id = $1 AND friend_id = $2`,
         [user.id, friend.id]
       );
+      let status = 'pending';
+      if (existing.rows.length > 0 && existing.rows[0].status === 'accepted') {
+        status = 'accepted';
+      } else {
+        // Check if reciprocal request exists (mutual pending)
+        const reciprocal = await p.query<{ status: string }>(
+          `SELECT status FROM friends WHERE user_id = $1 AND friend_id = $2`,
+          [friend.id, user.id]
+        );
+        if (reciprocal.rows.length > 0 && reciprocal.rows[0].status === 'pending') {
+          status = 'accepted';
+        }
+      }
+      // Insert or update friend request
       await p.query(
         `INSERT INTO friends (user_id, friend_id, status)
-         VALUES ($1, $2, 'accepted')
+         VALUES ($1, $2, $3)
          ON CONFLICT (user_id, friend_id)
          DO UPDATE SET status = EXCLUDED.status`,
-        [friend.id, user.id]
+        [user.id, friend.id, status]
       );
-      await p.query(
-        `INSERT INTO notifications (user_id, type, actor_id, message, is_read)
-         VALUES ($1, 'friend', $2, $3, false)`,
-        [friend.id, user.id, `${user.username} added you to GRID_CONTACTS.`]
-      );
+      if (status === 'accepted') {
+        // Accept reciprocal
+        await p.query(
+          `UPDATE friends SET status = 'accepted' WHERE user_id = $1 AND friend_id = $2`,
+          [friend.id, user.id]
+        );
+        await p.query(
+          `INSERT INTO notifications (user_id, type, actor_id, message, is_read)
+           VALUES ($1, 'friend', $2, $3, false)`,
+          [friend.id, user.id, `${user.username} accepted your friend request.`]
+        );
+      } else {
+        // Notify recipient of friend request
+        await p.query(
+          `INSERT INTO notifications (user_id, type, actor_id, message, is_read)
+           VALUES ($1, 'friend', $2, $3, false)`,
+          [friend.id, user.id, `${user.username} sent you a friend request.`]
+        );
+      }
       await p.query(`COMMIT`);
       res.statusCode = 201;
       res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify({ ok: true }));
+      res.end(JSON.stringify({ ok: true, status }));
       return;
     }
 

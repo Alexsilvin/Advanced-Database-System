@@ -192,34 +192,65 @@ export default async function friends(req: IncomingMessage, res: ServerResponse)
     }
 
     if (req.method === "POST") {
-      const body = (await readJsonBody(req)) as { username?: unknown };
+      const body = (await readJsonBody(req)) as { username?: unknown, groupId?: unknown };
       const targetUsername = typeof body.username === "string" ? body.username.trim() : "";
+      const groupId = typeof body.groupId === "string" ? body.groupId.trim() : undefined;
 
+      // Add to group logic
+      if (groupId && targetUsername) {
+        // Find user to add
+        const target = await p.query<{ id: string }>(
+          `SELECT id FROM users WHERE LOWER(username) = LOWER($1) LIMIT 1`,
+          [targetUsername]
+        );
+        if (target.rows.length === 0) {
+          res.statusCode = 404;
+          res.end(JSON.stringify({ error: "User not found" }));
+          return;
+        }
+        const targetId = target.rows[0].id;
+        // Check if requester is a member of the group
+        const isMember = await p.query(
+          `SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2 LIMIT 1`,
+          [groupId, user.id]
+        );
+        if (isMember.rows.length === 0) {
+          res.statusCode = 403;
+          res.end(JSON.stringify({ error: "You are not a member of this group" }));
+          return;
+        }
+        // Add user to group
+        await p.query(
+          `INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT (group_id, user_id) DO NOTHING`,
+          [groupId, targetId]
+        );
+        res.statusCode = 201;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ ok: true }));
+        return;
+      }
+
+      // Add friend logic (default)
       if (!targetUsername) {
         res.statusCode = 400;
         res.end(JSON.stringify({ error: "username is required" }));
         return;
       }
-
       if (targetUsername.toLowerCase() === user.username.toLowerCase()) {
         res.statusCode = 400;
         res.end(JSON.stringify({ error: "You cannot add yourself" }));
         return;
       }
-
       const target = await p.query<{ id: string; username: string }>(
         `SELECT id, username FROM users WHERE LOWER(username) = LOWER($1) LIMIT 1`,
         [targetUsername]
       );
-
       if (target.rows.length === 0) {
         res.statusCode = 404;
         res.end(JSON.stringify({ error: "User not found" }));
         return;
       }
-
       const friend = target.rows[0];
-
       await p.query(`BEGIN`);
       await p.query(
         `INSERT INTO friends (user_id, friend_id, status)
@@ -241,7 +272,6 @@ export default async function friends(req: IncomingMessage, res: ServerResponse)
         [friend.id, user.id, `${user.username} added you to GRID_CONTACTS.`]
       );
       await p.query(`COMMIT`);
-
       res.statusCode = 201;
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify({ ok: true }));

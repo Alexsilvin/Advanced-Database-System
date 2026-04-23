@@ -236,6 +236,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     if (pathname.startsWith('/api/wallet')) {
       return handleWallet(req, res, pathname, method, url, userId, p);
     }
+    if (pathname.startsWith('/api/friends')) {
+      return handleFriends(req, res, pathname, method, url, userId, p);
+    }
+    if (pathname.startsWith('/api/notifications')) {
+      return handleNotifications(req, res, pathname, method, url, userId, p);
+    }
 
     res.statusCode = 404;
     res.end(JSON.stringify({ error: 'Not found' }));
@@ -834,4 +840,154 @@ async function handleWallet(
 
   res.statusCode = 404;
   res.end(JSON.stringify({ error: 'Not found' }));
+}
+
+// ============================================================
+// FRIENDS HANDLER
+// ============================================================
+async function handleFriends(
+  req: IncomingMessage,
+  res: ServerResponse,
+  pathname: string,
+  method: string,
+  url: URL,
+  userId: string,
+  p: Pool
+): Promise<void> {
+  if (method === 'GET') {
+    const searchTerm = url.searchParams.get('search')?.trim() || '';
+
+    if (searchTerm) {
+      const result = await p.query(
+        `SELECT u.id, u.username, u.avatar_url, COALESCE(u.role, 'player')::text AS role, u.email,
+                EXISTS(SELECT 1 FROM friends f WHERE f.user_id = $1 AND f.friend_id = u.id AND f.status = 'accepted') AS is_friend
+         FROM users u WHERE u.id <> $1 AND (u.username ILIKE $2 || '%' OR u.username ILIKE '%' || $2 || '%')
+         ORDER BY CASE WHEN u.username ILIKE $2 || '%' THEN 0 ELSE 1 END, u.username ASC LIMIT 8`,
+        [userId, searchTerm.slice(0, 40)]
+      );
+      res.statusCode = 200;
+      res.end(JSON.stringify({ users: result.rows }));
+      return;
+    }
+
+    const result = await p.query(
+      `SELECT f.id, u.username,
+              CASE WHEN EXISTS(SELECT 1 FROM auth_sessions s2 WHERE s2.user_id = u.id AND s2.expires_at > NOW()) THEN 'online' ELSE 'offline' END::text AS status
+       FROM friends f INNER JOIN users u ON u.id = f.friend_id WHERE f.user_id = $1 AND f.status = 'accepted' ORDER BY u.username ASC`,
+      [userId]
+    );
+    res.statusCode = 200;
+    res.end(JSON.stringify({ friends: result.rows }));
+    return;
+  }
+
+  if (method === 'POST') {
+    const body = JSON.parse(await readBody(req));
+    const { username: targetUsername } = body;
+
+    if (!targetUsername || typeof targetUsername !== 'string') {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: 'username is required' }));
+      return;
+    }
+
+    const target = await p.query(`SELECT id, username FROM users WHERE LOWER(username) = LOWER($1) LIMIT 1`, [targetUsername.trim()]);
+
+    if (target.rows.length === 0) {
+      res.statusCode = 404;
+      res.end(JSON.stringify({ error: 'User not found' }));
+      return;
+    }
+
+    const friend = target.rows[0];
+
+    try {
+      await p.query('BEGIN');
+      await p.query(
+        `INSERT INTO friends (user_id, friend_id, status) VALUES ($1, $2, 'accepted')
+         ON CONFLICT (user_id, friend_id) DO UPDATE SET status = EXCLUDED.status`,
+        [userId, friend.id]
+      );
+      await p.query(
+        `INSERT INTO friends (user_id, friend_id, status) VALUES ($1, $2, 'accepted')
+         ON CONFLICT (user_id, friend_id) DO UPDATE SET status = EXCLUDED.status`,
+        [friend.id, userId]
+      );
+      await p.query(
+        `INSERT INTO notifications (user_id, type, actor_id, message, is_read) VALUES ($1, 'friend', $2, $3, false)`,
+        [friend.id, userId, `${(await p.query('SELECT username FROM users WHERE id = $1', [userId])).rows[0]?.username} added you to GRID_CONTACTS.`]
+      );
+      await p.query('COMMIT');
+      res.statusCode = 201;
+      res.end(JSON.stringify({ ok: true }));
+    } catch (error) {
+      await p.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    }
+    return;
+  }
+
+  res.statusCode = 405;
+  res.end(JSON.stringify({ error: 'Method not allowed' }));
+}
+
+// ============================================================
+// NOTIFICATIONS HANDLER
+// ============================================================
+async function handleNotifications(
+  req: IncomingMessage,
+  res: ServerResponse,
+  pathname: string,
+  method: string,
+  url: URL,
+  userId: string,
+  p: Pool
+): Promise<void> {
+  if (method === 'PATCH') {
+    const action = (url.searchParams.get('action') || '').toLowerCase();
+    if (action === 'mark-all-read') {
+      await p.query(`UPDATE notifications SET is_read = true WHERE user_id = $1`, [userId]);
+      res.statusCode = 200;
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+    res.statusCode = 400;
+    res.end(JSON.stringify({ error: 'Unsupported notification action' }));
+    return;
+  }
+
+  if (method === 'DELETE') {
+    const id = (url.searchParams.get('id') || '').trim();
+    if (id) {
+      await p.query(`DELETE FROM notifications WHERE user_id = $1 AND id = $2`, [userId, id]);
+    } else {
+      await p.query(`DELETE FROM notifications WHERE user_id = $1`, [userId]);
+    }
+    res.statusCode = 200;
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (method === 'GET') {
+    const result = await p.query(
+      `SELECT n.id, n.type, n.message, n.is_read, n.created_at, actor.username as actor_username
+       FROM notifications n LEFT JOIN users actor ON actor.id = n.actor_id
+       WHERE n.user_id = $1 ORDER BY n.created_at DESC LIMIT 100`,
+      [userId]
+    );
+    const notifications = result.rows.map((row: any) => ({
+      id: row.id,
+      type: row.type,
+      title: row.actor_username ? `${row.actor_username.toUpperCase()} // ${row.type.toUpperCase()}` : row.type.toUpperCase(),
+      message: row.message ?? 'New activity in your account.',
+      time: row.created_at,
+      read: row.is_read,
+    }));
+    res.statusCode = 200;
+    res.end(JSON.stringify({ notifications }));
+    return;
+  }
+
+  res.statusCode = 405;
+  res.end(JSON.stringify({ error: 'Method not allowed' }));
 }

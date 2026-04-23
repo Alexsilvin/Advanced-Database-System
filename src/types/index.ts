@@ -8,6 +8,12 @@ export interface Game {
   image: string;
   image_url?: string;
   category: string;
+  platform?: string;
+  publisher?: string;
+  edition?: string;
+  stock_quantity?: number;
+  warehouse_zone?: string;
+  discount_percent?: number;
   is_downloadable?: boolean;
   rom_filename?: string;
   rom_size_bytes?: number;

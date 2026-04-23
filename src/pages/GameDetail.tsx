@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ChefHat as CPU, Monitor, HardDrive, Cpu, Download, ArrowLeft, Star, ShieldCheck, Zap, ShoppingCart, Link as LinkIcon } from 'lucide-react';
 import { Game, GameId } from '../types';
+import { formatPrice } from '../utils';
 
 interface GameDetailProps {
     game: Game | null;
@@ -92,6 +93,24 @@ export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, o
                                 <span className="text-sm font-black italic">{game.rating || 'RATED: EXEMPT'}</span>
                             </div>
                         </div>
+                        <div className="flex flex-wrap gap-2 text-[10px] font-mono uppercase tracking-[0.3em] text-white/50">
+                            <span className="px-2 py-1 rounded-full border border-white/10 bg-white/5">
+                                {game.platform || 'NEON-READY'}
+                            </span>
+                            <span className="px-2 py-1 rounded-full border border-white/10 bg-white/5">
+                                {game.publisher || 'GRID PUBLISHER'}
+                            </span>
+                            {game.edition && (
+                                <span className="px-2 py-1 rounded-full border border-neon-magenta/20 bg-neon-magenta/10 text-neon-magenta">
+                                    {game.edition}
+                                </span>
+                            )}
+                            {typeof game.stock_quantity === 'number' && (
+                                <span className="px-2 py-1 rounded-full border border-neon-cyan/20 bg-neon-cyan/10 text-neon-cyan">
+                                    STOCK {game.stock_quantity}
+                                </span>
+                            )}
+                        </div>
                         <h1 className="text-5xl font-black italic tracking-tighter text-white">
                             {game.title}
                         </h1>
@@ -99,7 +118,7 @@ export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, o
                     <div className="flex items-center gap-4">
                         <div className="text-right">
                             <p className="text-[10px] font-mono text-white/40 tracking-widest uppercase mb-1">Grid Access Fee</p>
-                            <p className="text-4xl font-black italic text-neon-magenta">${game.price}</p>
+                            <p className="text-4xl font-black italic text-neon-magenta">{formatPrice(game.price)}</p>
                         </div>
                     </div>
                 </div>
@@ -117,6 +136,11 @@ export default function GameDetail({ game, owned, inBucket, onBack, onAcquire, o
                         <p className="text-white/70 leading-relaxed font-mono text-sm max-w-2xl">
                             {game.description}
                         </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                            <SpecItem icon={Monitor} label="PLATFORM" value={game.platform || 'MULTI-PLATFORM'} />
+                            <SpecItem icon={ShieldCheck} label="PUBLISHER" value={game.publisher || 'GRID DISTRIBUTION'} />
+                            <SpecItem icon={HardDrive} label="WAREHOUSE" value={game.warehouse_zone || 'NEON VAULT'} />
+                        </div>
                     </section>
 
                     {/* System Requirements */}

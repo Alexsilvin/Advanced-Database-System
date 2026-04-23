@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { fetchWallet, topupWallet, fetchWalletTransactions, fetchPurchaseHistory } from '../services/api';
 import type { Wallet, WalletTransaction, GamePurchase } from '../types';
+import { formatPrice } from '../utils';
 
 interface WalletPageProps {
   onBalanceUpdate?: (balance: number) => void;
@@ -90,7 +91,7 @@ export default function Wallet({ onBalanceUpdate }: WalletPageProps) {
       >
         <p className="text-gray-300 mb-2">Current Balance</p>
         <h1 className="text-5xl font-bold text-white mb-4">
-          ${wallet?.balance.toFixed(2) || '0.00'}
+          {formatPrice(wallet?.balance ?? 0)}
         </h1>
         <motion.button
           onClick={() => setShowTopupForm(!showTopupForm)}
@@ -114,7 +115,7 @@ export default function Wallet({ onBalanceUpdate }: WalletPageProps) {
           <div className="space-y-4">
             {/* Amount Input */}
             <div>
-              <label className="block text-gray-300 mb-2">Amount ($)</label>
+              <label className="block text-gray-300 mb-2">Amount (FCFA)</label>
               <input
                 type="number"
                 min="1"
@@ -220,7 +221,7 @@ export default function Wallet({ onBalanceUpdate }: WalletPageProps) {
                     <p className={`text-lg font-bold ${
                       tx.transaction_type === 'topup' ? 'text-green-400' : 'text-red-400'
                     }`}>
-                      {tx.transaction_type === 'topup' ? '+' : '-'}${tx.amount.toFixed(2)}
+                      {tx.transaction_type === 'topup' ? '+' : '-'}{formatPrice(tx.amount)}
                     </p>
                     <p className={`text-xs capitalize ${
                       tx.status === 'completed' ? 'text-green-500' : 'text-yellow-500'
@@ -249,7 +250,7 @@ export default function Wallet({ onBalanceUpdate }: WalletPageProps) {
                     <p className="text-white font-semibold">{purchase.game_id}</p>
                     <p className="text-xs text-gray-400">{new Date(purchase.purchased_at).toLocaleString()}</p>
                   </div>
-                  <p className="text-lg font-bold text-blue-400">-${purchase.price_paid.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-blue-400">-{formatPrice(purchase.price_paid)}</p>
                 </motion.div>
               ))
             )}
@@ -266,7 +267,7 @@ export default function Wallet({ onBalanceUpdate }: WalletPageProps) {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-300">Account Balance</span>
-                <span className="text-white font-bold">${wallet?.balance.toFixed(2) || '0.00'}</span>
+                <span className="text-white font-bold">{formatPrice(wallet?.balance ?? 0)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-300">Account Created</span>

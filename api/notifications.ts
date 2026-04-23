@@ -47,6 +47,7 @@ function parseCookies(cookieHeader: string | undefined): Record<string, string> 
 
 async function ensureNotificationsSchema(p: Pool): Promise<void> {
   await p.query(`
+    CREATE EXTENSION IF NOT EXISTS pgcrypto;
     CREATE TABLE IF NOT EXISTS notifications (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

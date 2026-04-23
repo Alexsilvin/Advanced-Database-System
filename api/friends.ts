@@ -71,6 +71,7 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
 
 async function ensureFriendsSchema(p: Pool): Promise<void> {
   await p.query(`
+    CREATE EXTENSION IF NOT EXISTS pgcrypto;
     CREATE TABLE IF NOT EXISTS friends (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

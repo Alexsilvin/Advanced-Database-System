@@ -85,6 +85,12 @@ type GameRow = {
   rom_storage_key: string | null;
   rom_filename: string | null;
   is_downloadable: boolean;
+  platform?: string | null;
+  publisher?: string | null;
+  edition?: string | null;
+  stock_quantity?: number | null;
+  warehouse_zone?: string | null;
+  discount_percent?: number | null;
 };
 
 let s3Client: S3Client | null = null;
@@ -181,16 +187,111 @@ async function initDb() {
         price REAL,
         description TEXT,
         image TEXT,
-        category TEXT
+        category TEXT,
+        platform TEXT,
+        publisher TEXT,
+        edition TEXT,
+        stock_quantity INT NOT NULL DEFAULT 0,
+        warehouse_zone TEXT,
+        discount_percent NUMERIC(5,2) NOT NULL DEFAULT 0,
+        rom_storage_key TEXT,
+        rom_filename TEXT,
+        rom_size_bytes BIGINT,
+        rom_sha256 TEXT,
+        license_type TEXT,
+        is_downloadable BOOLEAN NOT NULL DEFAULT TRUE
       );
       CREATE TABLE IF NOT EXISTS library (
-        user_id UUID REFERENCES users(id),
-        game_id UUID REFERENCES games(id)
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        game_id INT REFERENCES games(id) ON DELETE CASCADE,
+        added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (user_id, game_id)
       );
       CREATE TABLE IF NOT EXISTS friends (
-        user_id UUID REFERENCES users(id),
-        friend_id UUID REFERENCES users(id),
-        status TEXT -- 'pending', 'accepted'
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        friend_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        status TEXT NOT NULL DEFAULT 'accepted',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (user_id, friend_id),
+        CHECK (user_id <> friend_id)
+      );
+      CREATE TABLE IF NOT EXISTS bucket_items (
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        game_id INT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+        added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (user_id, game_id)
+      );
+      CREATE TABLE IF NOT EXISTS payment_methods (
+        id TEXT PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        last_four TEXT,
+        is_default BOOLEAN NOT NULL DEFAULT false,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS wallets (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS wallet_transactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        payment_method_id TEXT REFERENCES payment_methods(id) ON DELETE SET NULL,
+        transaction_type TEXT NOT NULL,
+        amount NUMERIC(12,2) NOT NULL,
+        status TEXT NOT NULL DEFAULT 'completed',
+        description TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS orders (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        customer_tier TEXT NOT NULL DEFAULT 'rookie',
+        subtotal_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+        discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+        tax_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+        total_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+        currency_code CHAR(3) NOT NULL DEFAULT 'XAF',
+        status TEXT NOT NULL DEFAULT 'completed',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS order_items (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        game_id INT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+        quantity INT NOT NULL DEFAULT 1,
+        unit_price NUMERIC(12,2) NOT NULL,
+        discount_percent NUMERIC(5,2) NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (order_id, game_id)
+      );
+      CREATE TABLE IF NOT EXISTS payments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        payment_method_id TEXT REFERENCES payment_methods(id) ON DELETE SET NULL,
+        wallet_transaction_id UUID REFERENCES wallet_transactions(id) ON DELETE SET NULL,
+        amount NUMERIC(12,2) NOT NULL,
+        currency_code CHAR(3) NOT NULL DEFAULT 'XAF',
+        status TEXT NOT NULL DEFAULT 'completed',
+        provider TEXT NOT NULL DEFAULT 'wallet',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS game_purchases (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        game_id INT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+        order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+        transaction_id UUID REFERENCES wallet_transactions(id) ON DELETE SET NULL,
+        price_paid NUMERIC(12,2) NOT NULL,
+        purchased_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (user_id, game_id)
       );
     `);
 
@@ -198,6 +299,18 @@ async function initDb() {
     await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;`);
     await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;`);
     await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_salt TEXT;`);
+    await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS platform TEXT;`);
+    await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS publisher TEXT;`);
+    await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS edition TEXT;`);
+    await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS stock_quantity INT NOT NULL DEFAULT 0;`);
+    await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS warehouse_zone TEXT;`);
+    await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS discount_percent NUMERIC(5,2) NOT NULL DEFAULT 0;`);
+    await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS rom_storage_key TEXT;`);
+    await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS rom_filename TEXT;`);
+    await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS rom_size_bytes BIGINT;`);
+    await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS rom_sha256 TEXT;`);
+    await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS license_type TEXT;`);
+    await p.query(`ALTER TABLE games ADD COLUMN IF NOT EXISTS is_downloadable BOOLEAN NOT NULL DEFAULT TRUE;`);
 
     await p.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users (email) WHERE email IS NOT NULL;`);
 
@@ -213,14 +326,14 @@ async function initDb() {
 
     const res = await p.query("SELECT COUNT(*) FROM games");
     if (parseInt(res.rows[0].count) === 0) {
-      const insertQuery = "INSERT INTO games (title, price, description, image, category) VALUES ($1, $2, $3, $4, $5)";
+      const insertQuery = "INSERT INTO games (title, price, description, image, category, platform, publisher, edition, stock_quantity, warehouse_zone, discount_percent) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)";
       const games = [
-        ["NEON STRIKE", 29.99, "High-speed glitch combat in the digital void. Master the art of code-warfare.", "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=1200", "Action"],
-        ["VOID RUNNER", 19.99, "Escape the collapsing simulation in this high-octane racing experience.", "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=1200", "Racing"],
-        ["CYBER-SOUL", 39.99, "A deep RPG set in a decaying megacity. Every choice alters the grid's fate.", "https://images.unsplash.com/photo-1605810230434-7631ac76ec81?auto=format&fit=crop&q=80&w=1200", "RPG"],
-        ["GLITCH-BIT", 14.99, "Retro platforming with a broken twist. Navigate through fragmented data.", "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=1200", "Platformer"],
-        ["TERMINAL VELOCITY", 24.99, "Tactical shooter in a low-poly digital landscape. Precision is everything.", "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1200", "Shooter"],
-        ["DATA DRIFTER", 9.99, "Zen-like strategy game about navigating the streams of information.", "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200", "Strategy"]
+        ["NEON STRIKE", 29.99, "High-speed glitch combat in the digital void. Master the art of code-warfare.", "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=1200", "Action", "PC / Console", "GridForge", "Collector's Cut", 18, "A1", 0],
+        ["VOID RUNNER", 19.99, "Escape the collapsing simulation in this high-octane racing experience.", "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=1200", "Racing", "PC", "GridForge", "Standard", 24, "B2", 0],
+        ["CYBER-SOUL", 39.99, "A deep RPG set in a decaying megacity. Every choice alters the grid's fate.", "https://images.unsplash.com/photo-1605810230434-7631ac76ec81?auto=format&fit=crop&q=80&w=1200", "RPG", "PC / Cloud", "Neon Atlas", "Deluxe", 12, "C1", 5],
+        ["GLITCH-BIT", 14.99, "Retro platforming with a broken twist. Navigate through fragmented data.", "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=1200", "Platformer", "Handheld / PC", "PixelPulse", "Arcade", 30, "A3", 0],
+        ["TERMINAL VELOCITY", 24.99, "Tactical shooter in a low-poly digital landscape. Precision is everything.", "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1200", "Shooter", "PC", "GridForge", "Tactical", 20, "B1", 0],
+        ["DATA DRIFTER", 9.99, "Zen-like strategy game about navigating the streams of information.", "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200", "Strategy", "PC / Tablet", "Neon Atlas", "Indie", 40, "D4", 0]
       ];
       for (const game of games) {
         await p.query(insertQuery, game);
@@ -755,7 +868,7 @@ async function startServer() {
       if (requireLibrary) {
         const entitlementRes = await p.query(
           `SELECT 1
-           FROM library_items
+           FROM library
            WHERE user_id = $1 AND game_id = $2
            LIMIT 1`,
           [sessionUser.id, String(gameId)]

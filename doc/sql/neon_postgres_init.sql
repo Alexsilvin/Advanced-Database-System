@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS orders (
   tax_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (tax_amount >= 0),
   discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
   total_amount NUMERIC(12,2) NOT NULL CHECK (total_amount >= 0),
-  currency_code CHAR(3) NOT NULL DEFAULT 'USD',
+  currency_code CHAR(3) NOT NULL DEFAULT 'XAF',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -130,6 +130,10 @@ CREATE INDEX IF NOT EXISTS idx_games_category ON games(category);
 CREATE INDEX IF NOT EXISTS idx_games_title ON games(title);
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, is_read);
+
+ALTER TABLE IF EXISTS notifications
+  ADD COLUMN IF NOT EXISTS title VARCHAR(180),
+  ADD COLUMN IF NOT EXISTS body TEXT;
 
 -- Seed users
 INSERT INTO users (username, email, password_hash, avatar_url, role)

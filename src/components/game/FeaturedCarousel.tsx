@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Game, GameId } from '../../types';
+import { formatPrice } from '../../utils';
 
 interface FeaturedCarouselProps {
     games: Game[];
@@ -104,7 +105,7 @@ export default function FeaturedCarousel({ games, onBuy, onSelect, library }: Fe
                                         }`}
                                 >
                                     <Zap className="w-4 h-4" />
-                                    {isOwned ? 'OWNED_IN_GRID' : `ACQUIRE_FOR $${currentGame.price}`}
+                                    {isOwned ? 'OWNED_IN_GRID' : `ACQUIRE_FOR ${formatPrice(currentGame.price)}`}
                                 </button>
                             </motion.div>
                         </div>

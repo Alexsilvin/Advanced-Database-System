@@ -10,9 +10,10 @@ interface FriendsProps {
   friends: Friend[];
   onAddFriend: (username: string) => Promise<void>;
   onOpenProfile: (username: string) => void;
+  onStartMessage: (target: { id: string; username: string }) => void;
 }
 
-export default function Friends({ friends, onAddFriend, onOpenProfile }: FriendsProps) {
+export default function Friends({ friends, onAddFriend, onOpenProfile, onStartMessage }: FriendsProps) {
   const [friendUsername, setFriendUsername] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -56,7 +57,22 @@ export default function Friends({ friends, onAddFriend, onOpenProfile }: Friends
   }, [friendUsername]);
 
   const openMessage = (username: string) => {
-    setStatusMessage(`Chat channel opened with ${username}.`);
+    void (async () => {
+      try {
+        const matches = await searchUsers(username);
+        const exact = matches.find((user) => user.username.toLowerCase() === username.toLowerCase());
+        const target = exact ?? matches[0];
+
+        if (!target) {
+          setStatusMessage(`Could not locate ${username} in search results.`);
+          return;
+        }
+
+        onStartMessage({ id: target.id, username: target.username });
+      } catch {
+        setStatusMessage(`Failed to open chat with ${username}.`);
+      }
+    })();
   };
 
   const submitAddFriend = async () => {
@@ -132,10 +148,9 @@ export default function Friends({ friends, onAddFriend, onOpenProfile }: Friends
           ) : (
             <div className="grid gap-2">
               {searchResults.map((user) => (
-                <button
+                <div
                   key={user.id}
-                  onClick={() => onOpenProfile(user.username)}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:border-neon-cyan/30 hover:bg-neon-cyan/5 transition-colors"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 hover:border-neon-cyan/30 hover:bg-neon-cyan/5 transition-colors"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-bold truncate">{user.username}</p>
@@ -143,10 +158,30 @@ export default function Friends({ friends, onAddFriend, onOpenProfile }: Friends
                       {user.is_friend ? 'Already in GRID_CONTACTS' : user.role}
                     </p>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-1 rounded-full border border-white/10 text-white/50 uppercase">
-                    VIEW_PROFILE
-                  </span>
-                </button>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => onOpenProfile(user.username)}
+                      className="text-[10px] font-mono px-2 py-1 rounded-full border border-white/10 text-white/60 hover:text-white hover:border-white/30"
+                    >
+                      PROFILE
+                    </button>
+                    {!user.is_friend && (
+                      <button
+                        onClick={() => void onAddFriend(user.username)}
+                        className="text-[10px] font-mono px-2 py-1 rounded-full border border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/20"
+                      >
+                        ADD
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onStartMessage({ id: user.id, username: user.username })}
+                      className="text-[10px] font-mono px-2 py-1 rounded-full border border-neon-magenta/30 text-neon-magenta hover:bg-neon-magenta/20"
+                    >
+                      MESSAGE
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           )

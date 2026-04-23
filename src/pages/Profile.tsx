@@ -15,6 +15,7 @@ interface ProfileProps {
   profile?: UserAccount | null;
   onOpenMessages?: (username: string) => void;
   onBackToSelf?: () => void;
+  customerTier?: string;
 }
 
 type RecentActivityItem = {
@@ -44,7 +45,7 @@ const rarityColor: Record<string, string> = {
   LEGENDARY: 'text-neon-yellow border-neon-yellow/30 bg-neon-yellow/10',
 };
 
-export default function Profile({ libraryCount, friendsCount, onLogout, role, currentUser, profile, onOpenMessages, onBackToSelf }: ProfileProps) {
+export default function Profile({ libraryCount, friendsCount, onLogout, role, currentUser, profile, onOpenMessages, onBackToSelf, customerTier = 'ROOKIE' }: ProfileProps) {
   const [notifications, setNotifications] = useState(true);
   const [editingName, setEditingName] = useState(false);
   const [displayName, setDisplayName] = useState((currentUser?.username || 'SYLVESTRE_01').toUpperCase());
@@ -170,7 +171,7 @@ export default function Profile({ libraryCount, friendsCount, onLogout, role, cu
             <p className="text-xs font-mono text-white/40 tracking-widest mb-3">MEMBER SINCE // JAN 2025</p>
             <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
               <span className="px-3 py-1 bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan text-[10px] font-mono rounded-full">
-                GRID_TIER: PLATINUM
+                GRID_TIER: {customerTier}
               </span>
               <span className={`px-3 py-1 text-[10px] font-mono rounded-full border ${role === 'admin' ? 'bg-neon-magenta/10 border-neon-magenta/30 text-neon-magenta' : 'bg-white/5 border-white/20 text-white/60'}`}>
                 ROLE: {role.toUpperCase()}

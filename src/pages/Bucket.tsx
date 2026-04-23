@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { ShoppingCart, Trash2, Terminal, Zap } from 'lucide-react';
 import { Game, GameId, TabType } from '../types';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import { formatPrice } from '../utils';
 
 interface BucketProps {
   games: Game[];
@@ -72,7 +73,7 @@ export default function Bucket({
                   <p className="text-[10px] font-mono text-white/40 uppercase">{game.category}</p>
                 </div>
                 <span className="text-lg font-black text-neon-magenta italic shrink-0">
-                  {Number(game.price).toFixed(2)}
+                  {formatPrice(game.price)}
                 </span>
                 <button
                   onClick={() => setPendingRemoveId(game.id)}
@@ -92,7 +93,7 @@ export default function Bucket({
                 Total
               </span>
               <span className="text-3xl font-black italic text-neon-cyan">
-                ${total.toFixed(2)}
+                {formatPrice(total)}
               </span>
             </div>
             <button
@@ -116,7 +117,7 @@ export default function Bucket({
       <ConfirmDialog
         open={confirmAcquire}
         title="CONFIRM ACQUISITION"
-        description={`Acquire ${bucket.length} item(s) for $${total.toFixed(2)} and move them into your library?`}
+        description={`Acquire ${bucket.length} item(s) for ${formatPrice(total)} and move them into your library?`}
         confirmLabel="ACQUIRE NOW"
         onCancel={() => setConfirmAcquire(false)}
         onConfirm={() => {

@@ -104,9 +104,15 @@ export default async function games(req: IncomingMessage, res: ServerResponse): 
 
     // GET /api/games - list all games
     if (req.method === "GET" && requestUrl.pathname === "/api/games") {
-      const result = await p.query("SELECT * FROM games WHERE is_active = true ORDER BY created_at DESC");
-      res.statusCode = 200;
-      res.end(JSON.stringify(result.rows));
+      try {
+        const result = await p.query("SELECT * FROM games ORDER BY id DESC");
+        res.statusCode = 200;
+        res.end(JSON.stringify(result.rows));
+      } catch (error) {
+        console.error("Failed to load catalog, returning empty list:", error);
+        res.statusCode = 200;
+        res.end(JSON.stringify([]));
+      }
       return;
     }
 
@@ -146,7 +152,7 @@ export default async function games(req: IncomingMessage, res: ServerResponse): 
       const gameRes = await p.query(
         `SELECT id, title, rom_storage_key, rom_filename, is_downloadable
          FROM games
-         WHERE id = $1 AND is_active = TRUE
+         WHERE id = $1
          LIMIT 1`,
         [gameId]
       );
@@ -167,7 +173,7 @@ export default async function games(req: IncomingMessage, res: ServerResponse): 
       const requireLibrary = process.env.DOWNLOAD_REQUIRE_LIBRARY === "true";
       if (requireLibrary) {
         const entitlementRes = await p.query(
-          `SELECT 1 FROM library_items WHERE user_id = $1 AND game_id = $2 LIMIT 1`,
+          `SELECT 1 FROM library WHERE user_id = $1 AND game_id = $2 LIMIT 1`,
           [userId, gameId]
         );
 

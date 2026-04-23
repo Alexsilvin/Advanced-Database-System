@@ -4,6 +4,7 @@ import { Terminal, ChevronRight } from 'lucide-react';
 import { Game, GameId, TabType } from '../types';
 import GameCard from '../components/game/GameCard';
 import FeaturedCarousel from '../components/game/FeaturedCarousel';
+import { formatPrice } from '../utils';
 
 const STORE_PREFS_KEY = 'neon-grid:store-prefs';
 
@@ -189,7 +190,7 @@ export default function Store({ games, library, filteredGames, dbError, onAddToL
                   <img src={game.image} alt={`${game.title} cover`} title={game.title} className="w-12 h-16 object-cover rounded shadow-lg" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold truncate group-hover:text-neon-cyan">{game.title}</p>
-                    <p className="text-[10px] text-white/40 italic">${game.price}</p>
+                    <p className="text-[10px] text-white/40 italic">{formatPrice(game.price)}</p>
                   </div>
                 </button>
               ))}

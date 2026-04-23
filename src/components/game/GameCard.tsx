@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Game } from '../../types';
 import { Zap } from 'lucide-react';
+import { formatPrice } from '../../utils';
 
 interface GameCardProps {
   game: Game;
@@ -73,8 +74,20 @@ export default function GameCard({ game, onBuy, onSelect, owned, onViewLibrary, 
         <h3 className="font-bold text-sm tracking-tight line-clamp-1 group-hover:text-neon-cyan transition-colors">
           {game.title}
         </h3>
+        <div className="flex items-center gap-2 flex-wrap text-[10px] font-mono uppercase tracking-widest text-white/35">
+          <span className="px-2 py-0.5 rounded-full border border-white/10 bg-white/5">
+            {game.platform || 'MULTI-PLATFORM'}
+          </span>
+          {typeof game.stock_quantity === 'number' && (
+            <span className="px-2 py-0.5 rounded-full border border-white/10 bg-white/5">
+              STOCK {game.stock_quantity}
+            </span>
+          )}
+        </div>
         <div className="flex items-center justify-between">
-          <span className="text-xs font-mono text-white/40">Base Game</span>
+          <span className="text-xs font-mono text-white/40">
+            {game.publisher || 'BASE GAME'}
+          </span>
           <div className="flex flex-col items-end">
             {owned ? (
               <span
@@ -88,7 +101,7 @@ export default function GameCard({ game, onBuy, onSelect, owned, onViewLibrary, 
               </span>
             ) : (
               <span className="text-sm font-black italic">
-                ${game.price}
+                {formatPrice(game.price)}
               </span>
             )}
           </div>

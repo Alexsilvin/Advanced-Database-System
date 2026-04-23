@@ -4,10 +4,11 @@ import { fetchConversations, fetchConversation, sendMessage, markMessagesAsRead 
 import type { Conversation, DirectMessage } from '../types';
 
 interface MessagesPageProps {
-  userId: string;
+  currentUserId: string;
+  initialSelectedUserId?: string | null;
 }
 
-export default function Messages({ userId }: MessagesPageProps) {
+export default function Messages({ currentUserId, initialSelectedUserId = null }: MessagesPageProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
@@ -32,6 +33,12 @@ export default function Messages({ userId }: MessagesPageProps) {
     const interval = setInterval(loadConversations, 15000); // Refresh every 15s
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (initialSelectedUserId) {
+      setSelectedUserId(initialSelectedUserId);
+    }
+  }, [initialSelectedUserId]);
 
   // Load messages when conversation is selected
   useEffect(() => {
@@ -126,13 +133,13 @@ export default function Messages({ userId }: MessagesPageProps) {
               messages.map((msg) => (
                 <motion.div
                   key={msg.id}
-                  className={`flex ${msg.sender_id === userId ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                 >
                   <div
                     className={`max-w-xs px-4 py-2 rounded-lg ${
-                      msg.sender_id === userId
+                      msg.sender_id === currentUserId
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-700 text-gray-100'
                     }`}

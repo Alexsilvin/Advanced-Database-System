@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthSessionResponse, Game, GameId, TabType, UserAccount } from './types';
-import { addBucketItem, addFriend, fetchBucketItems, fetchCurrentUser, fetchFriends, fetchGames, fetchNotifications, fetchWallet, loginUser, logoutUser, removeBucketItem, replaceBucketItems, requestGameDownloadUrl, searchUsers, signupUser } from './services/api';
+import { addBucketItem, addFriend, fetchBucketItems, fetchCurrentUser, fetchFriends, fetchGames, fetchNotifications, fetchPurchaseHistory, fetchWallet, loginUser, logoutUser, purchaseGame, removeBucketItem, replaceBucketItems, requestGameDownloadUrl, searchUsers, signupUser } from './services/api';
 import { useGlitchEffect } from './hooks/useGlitchEffect';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
@@ -51,6 +51,13 @@ function readStorage<T>(key: string, fallback: T): T {
   }
 }
 
+function getCustomerTier(totalSpent: number): string {
+  if (totalSpent >= 150) return 'LEGEND';
+  if (totalSpent >= 75) return 'ELITE';
+  if (totalSpent >= 25) return 'RUNNER';
+  return 'ROOKIE';
+}
+
 export default function App() {
   const [currentView, setCurrentView] = useState<AppView>('welcome');
   const [username, setUsername] = useState<string>('');
@@ -69,7 +76,9 @@ export default function App() {
   const [friends, setFriends] = useState<Array<{ username: string; status: 'online' | 'offline' | 'playing'; game?: string }>>([]);
   const [notificationsCount, setNotificationsCount] = useState(0);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [customerSpend, setCustomerSpend] = useState(0);
   const [selectedProfile, setSelectedProfile] = useState<UserAccount | null>(null);
+  const [messageTargetUserId, setMessageTargetUserId] = useState<string | null>(null);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [loading] = useState(false);
     const [dbError, setDbError] = useState<string | null>(null);
@@ -102,26 +111,46 @@ export default function App() {
     setFriends([]);
     setNotificationsCount(0);
     setSelectedProfile(null);
+    setMessageTargetUserId(null);
   };
 
   const loadUserScopedData = async () => {
-    try {
-      const [bucketIds, friendsList, notifications, wallet] = await Promise.all([
-        fetchBucketItems(),
-        fetchFriends(),
-        fetchNotifications(),
-        fetchWallet(),
-      ]);
+    const [bucketResult, friendsResult, notificationsResult, walletResult, purchasesResult] = await Promise.allSettled([
+      fetchBucketItems(),
+      fetchFriends(),
+      fetchNotifications(),
+      fetchWallet(),
+      fetchPurchaseHistory(),
+    ]);
 
-      setBucket(bucketIds);
-      setFriends(friendsList);
-      setNotificationsCount(notifications.filter((item) => !item.read).length);
-      setWalletBalance(wallet.balance);
-    } catch {
+    if (bucketResult.status === 'fulfilled') {
+      setBucket(bucketResult.value);
+    } else {
       setBucket([]);
+    }
+
+    if (friendsResult.status === 'fulfilled') {
+      setFriends(friendsResult.value);
+    } else {
       setFriends([]);
+    }
+
+    if (notificationsResult.status === 'fulfilled') {
+      setNotificationsCount(notificationsResult.value.filter((item) => !item.read).length);
+    } else {
       setNotificationsCount(0);
+    }
+
+    if (walletResult.status === 'fulfilled') {
+      setWalletBalance(walletResult.value.balance);
+    } else {
       setWalletBalance(0);
+    }
+
+    if (purchasesResult.status === 'fulfilled') {
+      setCustomerSpend(purchasesResult.value.reduce((sum, purchase) => sum + Number(purchase.price_paid || 0), 0));
+    } else {
+      setCustomerSpend(0);
     }
   };
 
@@ -307,6 +336,7 @@ export default function App() {
       setCurrentView('welcome');
       setActiveTab('store');
       setSelectedProfile(null);
+      setMessageTargetUserId(null);
       setSelectedGame(null);
       setSearchTerm('');
       setShowDashboardOnce(false);
@@ -321,6 +351,9 @@ export default function App() {
   const handleTabChange = (tab: TabType) => {
     if (tab === 'profile') {
       setSelectedProfile(null);
+    }
+    if (tab !== 'messages') {
+      setMessageTargetUserId(null);
     }
     setActiveTab(tab);
   };
@@ -343,16 +376,43 @@ export default function App() {
     }
   };
 
+  const openMessageWithUser = (target: { id: string; username: string }) => {
+    setMessageTargetUserId(target.id);
+    setActiveTab('messages');
+    notify(`Opened chat with ${target.username}.`, 'info');
+  };
+
   const addToLibrary = (gameId: GameId) => {
-    const gameName = games.find((g) => g.id === gameId)?.title ?? 'Game';
-    if (!library.includes(gameId)) {
-      setLibrary((prev) => [...prev, gameId]);
-      notify(`${gameName} added to your library.`, 'success');
-    } else {
-      notify(`${gameName} is already in your library.`, 'info');
-    }
-    setBucket((prev) => prev.filter((id) => id !== gameId));
-    void removeBucketItem(gameId).catch(() => undefined);
+    void (async () => {
+      const game = games.find((item) => item.id === gameId);
+      const gameName = game?.title ?? 'Game';
+
+      if (!game) {
+        notify('Selected game was not found.', 'error');
+        return;
+      }
+
+      if (library.includes(gameId)) {
+        notify(`${gameName} is already in your library.`, 'info');
+        return;
+      }
+
+      try {
+        const result = await purchaseGame(gameId, game.price);
+        setLibrary((prev) => (prev.includes(gameId) ? prev : [...prev, gameId]));
+        setWalletBalance(result.newBalance);
+        setCustomerSpend((prev) => prev + Number(result.purchase.price_paid || game.price));
+
+        if (bucket.includes(gameId)) {
+          setBucket((prev) => prev.filter((id) => id !== gameId));
+          void removeBucketItem(gameId).catch(() => undefined);
+        }
+
+        notify(`${gameName} secured for the GRID library.`, 'success');
+      } catch (error) {
+        notify(error instanceof Error ? error.message : 'Failed to acquire game.', 'error');
+      }
+    })();
   };
 
   const addToBucket = (gameId: GameId) => {
@@ -413,30 +473,70 @@ export default function App() {
         return;
       }
 
-      const newIds = bucket.filter((id) => !library.includes(id));
-      setLibrary((prev) => [...prev, ...newIds]);
+      const nextBucket: GameId[] = [];
+      let purchaseBlocked = false;
+      let acquiredCount = 0;
+
+      for (const gameId of bucket) {
+        if (purchaseBlocked) {
+          nextBucket.push(gameId);
+          continue;
+        }
+
+        const game = games.find((item) => item.id === gameId);
+        if (!game || library.includes(gameId)) {
+          nextBucket.push(gameId);
+          continue;
+        }
+
+        try {
+          const result = await purchaseGame(gameId, game.price);
+          acquiredCount += 1;
+          setLibrary((prev) => (prev.includes(gameId) ? prev : [...prev, gameId]));
+          setWalletBalance(result.newBalance);
+          setCustomerSpend((prev) => prev + Number(result.purchase.price_paid || game.price));
+        } catch (error) {
+          nextBucket.push(gameId);
+          notify(error instanceof Error ? error.message : 'Failed to acquire bucket items.', 'error');
+          purchaseBlocked = true;
+          continue;
+        }
+      }
 
       try {
-        await replaceBucketItems([]);
-        setBucket([]);
+        await replaceBucketItems(nextBucket);
+        setBucket(nextBucket);
       } catch {
         notify('Purchase completed locally, but bucket sync failed.', 'error');
       }
 
-      notify(`${newIds.length} game(s) acquired successfully.`, 'success');
+      if (acquiredCount > 0) {
+        notify(`${acquiredCount} game(s) acquired successfully.`, 'success');
+      }
     })();
   };
 
   const handleAddFriend = async (friendUsername: string) => {
     await addFriend(friendUsername);
-    const [friendsList, notifications] = await Promise.all([fetchFriends(), fetchNotifications()]);
-    setFriends(friendsList);
-    setNotificationsCount(notifications.filter((item) => !item.read).length);
+    const [friendsResult, notificationsResult] = await Promise.allSettled([
+      fetchFriends(),
+      fetchNotifications(),
+    ]);
+
+    if (friendsResult.status === 'fulfilled') {
+      setFriends(friendsResult.value);
+    }
+
+    if (notificationsResult.status === 'fulfilled') {
+      setNotificationsCount(notificationsResult.value.filter((item) => !item.read).length);
+    }
   };
 
   const filteredGames = Array.isArray(games)
     ? games.filter(g => g.title.toLowerCase().includes(searchTerm.toLowerCase()))
     : [];
+
+  const customerTier = getCustomerTier(customerSpend);
 
   const handleDownloadGame = async (gameId: GameId) => {
     const targetGame = games.find((game) => game.id === gameId);
@@ -681,7 +781,12 @@ export default function App() {
             )}
 
           {activeTab === 'friends' && (
-              <Friends friends={friends} onAddFriend={handleAddFriend} onOpenProfile={openProfile} />
+              <Friends
+                friends={friends}
+                onAddFriend={handleAddFriend}
+                onOpenProfile={openProfile}
+                onStartMessage={openMessageWithUser}
+              />
             )}
 
           {activeTab === 'bucket' && (
@@ -700,7 +805,7 @@ export default function App() {
             )}
 
           {activeTab === 'messages' && (
-              <Messages userId={username} />
+              <Messages currentUserId={currentUser?.id || ''} initialSelectedUserId={messageTargetUserId} />
             )}
 
           {activeTab === 'groups' && (
@@ -719,8 +824,15 @@ export default function App() {
                 role={userRole}
                 currentUser={currentUser}
                 profile={selectedProfile}
-                onOpenMessages={() => handleTabChange('messages')}
+                onOpenMessages={() => {
+                  if (selectedProfile?.id) {
+                    openMessageWithUser({ id: selectedProfile.id, username: selectedProfile.username });
+                    return;
+                  }
+                  handleTabChange('messages');
+                }}
                 onBackToSelf={() => setSelectedProfile(null)}
+                customerTier={customerTier}
               />
             )}
 

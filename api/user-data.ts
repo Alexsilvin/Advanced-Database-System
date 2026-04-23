@@ -4,6 +4,7 @@ import crypto from 'crypto';
 
 const SESSION_COOKIE_NAME = 'neon-grid-session';
 let pool: Pool | null = null;
+let schemaBootstrap: Promise<void> | null = null;
 
 function getPool(): Pool | null {
   if (!pool) {
@@ -60,6 +61,147 @@ async function readBody(req: IncomingMessage): Promise<string> {
   return Buffer.concat(chunks).toString('utf-8');
 }
 
+async function ensureUserDataSchema(p: Pool): Promise<void> {
+  if (!schemaBootstrap) {
+    schemaBootstrap = (async () => {
+      await p.query(`
+    CREATE EXTENSION IF NOT EXISTS pgcrypto;
+    CREATE TABLE IF NOT EXISTS library (
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      game_id INT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (user_id, game_id)
+    );
+    CREATE TABLE IF NOT EXISTS wallets (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+      balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS payment_methods (
+      id TEXT PRIMARY KEY,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      last_four TEXT,
+      is_default BOOLEAN NOT NULL DEFAULT false,
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS wallet_transactions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      payment_method_id TEXT REFERENCES payment_methods(id) ON DELETE SET NULL,
+      transaction_type TEXT NOT NULL,
+      amount NUMERIC(12,2) NOT NULL,
+      status TEXT NOT NULL DEFAULT 'completed',
+      description TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS orders (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      customer_tier TEXT NOT NULL DEFAULT 'rookie',
+      subtotal_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      tax_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      total_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      currency_code CHAR(3) NOT NULL DEFAULT 'XAF',
+      status TEXT NOT NULL DEFAULT 'completed',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS order_items (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      game_id INT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      quantity INT NOT NULL DEFAULT 1,
+      unit_price NUMERIC(12,2) NOT NULL,
+      discount_percent NUMERIC(5,2) NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (order_id, game_id)
+    );
+    CREATE TABLE IF NOT EXISTS payments (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      payment_method_id TEXT REFERENCES payment_methods(id) ON DELETE SET NULL,
+      wallet_transaction_id UUID REFERENCES wallet_transactions(id) ON DELETE SET NULL,
+      amount NUMERIC(12,2) NOT NULL,
+      currency_code CHAR(3) NOT NULL DEFAULT 'XAF',
+      status TEXT NOT NULL DEFAULT 'completed',
+      provider TEXT NOT NULL DEFAULT 'wallet',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS game_purchases (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      game_id INT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+      transaction_id UUID REFERENCES wallet_transactions(id) ON DELETE SET NULL,
+      price_paid NUMERIC(12,2) NOT NULL,
+      purchased_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, game_id)
+    );
+    CREATE TABLE IF NOT EXISTS messages (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      recipient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      is_read BOOLEAN NOT NULL DEFAULT false,
+      read_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS message_groups (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name TEXT NOT NULL,
+      description TEXT,
+      creator_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      is_public BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS group_members (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      group_id UUID NOT NULL REFERENCES message_groups(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      is_admin BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (group_id, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS group_messages (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      group_id UUID NOT NULL REFERENCES message_groups(id) ON DELETE CASCADE,
+      sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+      `);
+    })().catch((error) => {
+      schemaBootstrap = null;
+      throw error;
+    });
+  }
+
+  return schemaBootstrap;
+}
+
+async function ensureWalletRow(p: Pool, userId: string): Promise<void> {
+  await p.query(
+    `INSERT INTO wallets (user_id)
+     VALUES ($1)
+     ON CONFLICT (user_id) DO NOTHING`,
+    [userId]
+  );
+}
+
+function getCustomerTier(totalSpent: number) {
+  if (totalSpent >= 150) return { tier: 'legend', discountPercent: 10 };
+  if (totalSpent >= 75) return { tier: 'elite', discountPercent: 5 };
+  if (totalSpent >= 25) return { tier: 'runner', discountPercent: 2 };
+  return { tier: 'rookie', discountPercent: 0 };
+}
+
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const userId = await getSessionUser(req);
   if (!userId) {
@@ -82,6 +224,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const pathname = url.pathname;
     const method = req.method || 'GET';
 
+    await ensureUserDataSchema(p);
+
     // Route to appropriate handler based on pathname
     if (pathname.startsWith('/api/messages')) {
       return handleMessages(req, res, pathname, method, url, userId, p);
@@ -91,6 +235,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
     if (pathname.startsWith('/api/wallet')) {
       return handleWallet(req, res, pathname, method, url, userId, p);
+    }
+    if (pathname.startsWith('/api/friends')) {
+      return handleFriends(req, res, pathname, method, url, userId, p);
+    }
+    if (pathname.startsWith('/api/notifications')) {
+      return handleNotifications(req, res, pathname, method, url, userId, p);
     }
 
     res.statusCode = 404;
@@ -416,6 +566,7 @@ async function handleWallet(
 ): Promise<void> {
   // GET /api/wallet - get wallet balance
   if (method === 'GET' && pathname === '/api/wallet') {
+    await ensureWalletRow(p, userId);
     const result = await p.query(
       `SELECT id, user_id, balance, created_at, updated_at FROM wallets WHERE user_id = $1`,
       [userId]
@@ -445,6 +596,8 @@ async function handleWallet(
 
     await p.query('BEGIN');
     try {
+      await ensureWalletRow(p, userId);
+
       const txResult = await p.query(
         `INSERT INTO wallet_transactions 
          (user_id, payment_method_id, transaction_type, amount, status, description)
@@ -509,43 +662,150 @@ async function handleWallet(
 
     await p.query('BEGIN');
     try {
+      const gameResult = await p.query<{ id: string; title: string; price: number; stock_quantity: number | null }>(
+        `SELECT id, title, price, stock_quantity
+         FROM games
+         WHERE id = $1
+         LIMIT 1`,
+        [gameId]
+      );
+
+      if (gameResult.rows.length === 0) {
+        await p.query('ROLLBACK');
+        res.statusCode = 404;
+        res.end(JSON.stringify({ error: 'Game not found' }));
+        return;
+      }
+
+      const game = gameResult.rows[0];
+      const existingPurchase = await p.query(
+        `SELECT 1 FROM game_purchases WHERE user_id = $1 AND game_id = $2 LIMIT 1`,
+        [userId, gameId]
+      );
+
+      if (existingPurchase.rows.length > 0) {
+        const purchaseResult = await p.query(
+          `SELECT id, user_id, game_id, price_paid, purchased_at
+           FROM game_purchases
+           WHERE user_id = $1 AND game_id = $2
+           ORDER BY purchased_at DESC
+           LIMIT 1`,
+          [userId, gameId]
+        );
+
+        const walletResult = await p.query(
+          `SELECT balance FROM wallets WHERE user_id = $1`,
+          [userId]
+        );
+
+        await p.query('COMMIT');
+        res.statusCode = 200;
+        res.end(JSON.stringify({
+          purchase: purchaseResult.rows[0],
+          newBalance: walletResult.rows[0].balance,
+          customerTier: 'owned',
+        }));
+        return;
+      }
+
+      if (game.stock_quantity !== null && Number(game.stock_quantity) <= 0) {
+        await p.query('ROLLBACK');
+        res.statusCode = 409;
+        res.end(JSON.stringify({ error: 'This game is out of stock' }));
+        return;
+      }
+
+      const spendResult = await p.query<{ total_spent: string }>(
+        `SELECT COALESCE(SUM(price_paid), 0)::text AS total_spent
+         FROM game_purchases
+         WHERE user_id = $1`,
+        [userId]
+      );
+      const spentBeforePurchase = Number(spendResult.rows[0]?.total_spent ?? 0);
+      const customer = getCustomerTier(spentBeforePurchase);
+      const basePrice = Number(game.price ?? price);
+      const discountAmount = Number((basePrice * (customer.discountPercent / 100)).toFixed(2));
+      const taxAmount = 0;
+      const totalAmount = Number((basePrice - discountAmount + taxAmount).toFixed(2));
+
       const walletResult = await p.query(
         `SELECT balance FROM wallets WHERE user_id = $1`,
         [userId]
       );
 
-      if (walletResult.rows.length === 0 || walletResult.rows[0].balance < price) {
+      if (walletResult.rows.length === 0 || Number(walletResult.rows[0].balance) < totalAmount) {
         await p.query('ROLLBACK');
         res.statusCode = 402;
         res.end(JSON.stringify({ error: 'Insufficient balance' }));
         return;
       }
 
+      const orderResult = await p.query<{ id: string }>(
+        `INSERT INTO orders (user_id, customer_tier, subtotal_amount, discount_amount, tax_amount, total_amount, currency_code, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'XAF', 'completed')
+         RETURNING id`,
+        [userId, customer.tier, basePrice, discountAmount, taxAmount, totalAmount]
+      );
+
+      await p.query(
+        `INSERT INTO order_items (order_id, game_id, quantity, unit_price, discount_percent)
+         VALUES ($1, $2, 1, $3, $4)`,
+        [orderResult.rows[0].id, gameId, basePrice, customer.discountPercent]
+      );
+
       const txResult = await p.query(
         `INSERT INTO wallet_transactions 
          (user_id, transaction_type, amount, status, description)
          VALUES ($1, 'purchase', $2, 'completed', $3)
          RETURNING id`,
-        [userId, price, `Game purchase: ${gameId}`]
+        [userId, totalAmount, `Grid purchase: ${game.title}`]
       );
 
       const transactionId = txResult.rows[0].id;
 
       await p.query(
         `UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2`,
-        [price, userId]
+        [totalAmount, userId]
+      );
+
+      await p.query(
+        `INSERT INTO payments (order_id, user_id, payment_method_id, wallet_transaction_id, amount, currency_code, status, provider)
+         VALUES ($1, $2, NULL, $3, $4, 'XAF', 'completed', 'wallet')`,
+        [orderResult.rows[0].id, userId, transactionId, totalAmount]
       );
 
       const purchaseResult = await p.query(
-        `INSERT INTO game_purchases (user_id, game_id, price_paid, transaction_id)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO game_purchases (user_id, game_id, order_id, transaction_id, price_paid)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING id, purchased_at`,
-        [userId, gameId, price, transactionId]
+        [userId, gameId, orderResult.rows[0].id, transactionId, totalAmount]
       );
+
+      await p.query(
+        `INSERT INTO library (user_id, game_id)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id, game_id) DO NOTHING`,
+        [userId, gameId]
+      );
+
+      if (game.stock_quantity !== null) {
+        await p.query(
+          `UPDATE games SET stock_quantity = GREATEST(stock_quantity - 1, 0) WHERE id = $1`,
+          [gameId]
+        );
+      }
 
       const updatedWallet = await p.query(
         `SELECT balance FROM wallets WHERE user_id = $1`,
         [userId]
+      );
+
+      const orderRow = await p.query(
+        `SELECT id, customer_tier, subtotal_amount, discount_amount, tax_amount, total_amount, currency_code, status, created_at
+         FROM orders
+         WHERE id = $1
+         LIMIT 1`,
+        [orderResult.rows[0].id]
       );
 
       await p.query('COMMIT');
@@ -554,6 +814,9 @@ async function handleWallet(
       res.end(JSON.stringify({
         purchase: purchaseResult.rows[0],
         newBalance: updatedWallet.rows[0].balance,
+        order: orderRow.rows[0],
+        customerTier: customer.tier,
+        discountAmount,
       }));
     } catch (error) {
       await p.query('ROLLBACK');
@@ -577,4 +840,154 @@ async function handleWallet(
 
   res.statusCode = 404;
   res.end(JSON.stringify({ error: 'Not found' }));
+}
+
+// ============================================================
+// FRIENDS HANDLER
+// ============================================================
+async function handleFriends(
+  req: IncomingMessage,
+  res: ServerResponse,
+  pathname: string,
+  method: string,
+  url: URL,
+  userId: string,
+  p: Pool
+): Promise<void> {
+  if (method === 'GET') {
+    const searchTerm = url.searchParams.get('search')?.trim() || '';
+
+    if (searchTerm) {
+      const result = await p.query(
+        `SELECT u.id, u.username, u.avatar_url, COALESCE(u.role, 'player')::text AS role, u.email,
+                EXISTS(SELECT 1 FROM friends f WHERE f.user_id = $1 AND f.friend_id = u.id AND f.status = 'accepted') AS is_friend
+         FROM users u WHERE u.id <> $1 AND (u.username ILIKE $2 || '%' OR u.username ILIKE '%' || $2 || '%')
+         ORDER BY CASE WHEN u.username ILIKE $2 || '%' THEN 0 ELSE 1 END, u.username ASC LIMIT 8`,
+        [userId, searchTerm.slice(0, 40)]
+      );
+      res.statusCode = 200;
+      res.end(JSON.stringify({ users: result.rows }));
+      return;
+    }
+
+    const result = await p.query(
+      `SELECT f.id, u.username,
+              CASE WHEN EXISTS(SELECT 1 FROM auth_sessions s2 WHERE s2.user_id = u.id AND s2.expires_at > NOW()) THEN 'online' ELSE 'offline' END::text AS status
+       FROM friends f INNER JOIN users u ON u.id = f.friend_id WHERE f.user_id = $1 AND f.status = 'accepted' ORDER BY u.username ASC`,
+      [userId]
+    );
+    res.statusCode = 200;
+    res.end(JSON.stringify({ friends: result.rows }));
+    return;
+  }
+
+  if (method === 'POST') {
+    const body = JSON.parse(await readBody(req));
+    const { username: targetUsername } = body;
+
+    if (!targetUsername || typeof targetUsername !== 'string') {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: 'username is required' }));
+      return;
+    }
+
+    const target = await p.query(`SELECT id, username FROM users WHERE LOWER(username) = LOWER($1) LIMIT 1`, [targetUsername.trim()]);
+
+    if (target.rows.length === 0) {
+      res.statusCode = 404;
+      res.end(JSON.stringify({ error: 'User not found' }));
+      return;
+    }
+
+    const friend = target.rows[0];
+
+    try {
+      await p.query('BEGIN');
+      await p.query(
+        `INSERT INTO friends (user_id, friend_id, status) VALUES ($1, $2, 'accepted')
+         ON CONFLICT (user_id, friend_id) DO UPDATE SET status = EXCLUDED.status`,
+        [userId, friend.id]
+      );
+      await p.query(
+        `INSERT INTO friends (user_id, friend_id, status) VALUES ($1, $2, 'accepted')
+         ON CONFLICT (user_id, friend_id) DO UPDATE SET status = EXCLUDED.status`,
+        [friend.id, userId]
+      );
+      await p.query(
+        `INSERT INTO notifications (user_id, type, actor_id, message, is_read) VALUES ($1, 'friend', $2, $3, false)`,
+        [friend.id, userId, `${(await p.query('SELECT username FROM users WHERE id = $1', [userId])).rows[0]?.username} added you to GRID_CONTACTS.`]
+      );
+      await p.query('COMMIT');
+      res.statusCode = 201;
+      res.end(JSON.stringify({ ok: true }));
+    } catch (error) {
+      await p.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    }
+    return;
+  }
+
+  res.statusCode = 405;
+  res.end(JSON.stringify({ error: 'Method not allowed' }));
+}
+
+// ============================================================
+// NOTIFICATIONS HANDLER
+// ============================================================
+async function handleNotifications(
+  req: IncomingMessage,
+  res: ServerResponse,
+  pathname: string,
+  method: string,
+  url: URL,
+  userId: string,
+  p: Pool
+): Promise<void> {
+  if (method === 'PATCH') {
+    const action = (url.searchParams.get('action') || '').toLowerCase();
+    if (action === 'mark-all-read') {
+      await p.query(`UPDATE notifications SET is_read = true WHERE user_id = $1`, [userId]);
+      res.statusCode = 200;
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+    res.statusCode = 400;
+    res.end(JSON.stringify({ error: 'Unsupported notification action' }));
+    return;
+  }
+
+  if (method === 'DELETE') {
+    const id = (url.searchParams.get('id') || '').trim();
+    if (id) {
+      await p.query(`DELETE FROM notifications WHERE user_id = $1 AND id = $2`, [userId, id]);
+    } else {
+      await p.query(`DELETE FROM notifications WHERE user_id = $1`, [userId]);
+    }
+    res.statusCode = 200;
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (method === 'GET') {
+    const result = await p.query(
+      `SELECT n.id, n.type, n.message, n.is_read, n.created_at, actor.username as actor_username
+       FROM notifications n LEFT JOIN users actor ON actor.id = n.actor_id
+       WHERE n.user_id = $1 ORDER BY n.created_at DESC LIMIT 100`,
+      [userId]
+    );
+    const notifications = result.rows.map((row: any) => ({
+      id: row.id,
+      type: row.type,
+      title: row.actor_username ? `${row.actor_username.toUpperCase()} // ${row.type.toUpperCase()}` : row.type.toUpperCase(),
+      message: row.message ?? 'New activity in your account.',
+      time: row.created_at,
+      read: row.is_read,
+    }));
+    res.statusCode = 200;
+    res.end(JSON.stringify({ notifications }));
+    return;
+  }
+
+  res.statusCode = 405;
+  res.end(JSON.stringify({ error: 'Method not allowed' }));
 }

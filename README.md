@@ -18,600 +18,519 @@
    <img src="https://img.shields.io/badge/STATUS-Prototype%20%E2%86%92%20Production%20Path-08090f?style=flat-square&logo=vercel&logoColor=00f3ff&labelColor=0f111a" alt="Status Prototype to Production Path" />
 </p>
 
-<p align="center">
-   <b>NEON GRID</b> is a full-stack retro game marketplace prototype inspired by modern digital storefronts, rebuilt with a neon-cyber aesthetic and database-first architecture.
-</p>
 
-<p align="center">
-   <a href="#1-project-vision">Project Vision</a> •
-   <a href="#3-technical-architecture">Technical Architecture</a> •
-   <a href="#6-suggested-postgresql-ddl-target">Target Database DDL</a> •
-   <a href="#11-practical-next-steps-database-driven-completion">Next Steps</a>
-</p>
+NEON GRID is a retro-cyber game marketplace built with React, TypeScript, Express, PostgreSQL, and serverless API handlers. The app centers on a storefront, account/auth flow, admin ROM tools, social features, notifications, wallet pages, and a ROM download pipeline backed by object storage.
 
-## Platform Snapshot
+## What is implemented now
 
-This project is a full-stack prototype of a digital game store focused on NES/retro titles.
+- React 19 + TypeScript frontend with tabbed navigation and responsive layout.
+- Storefront, game detail, library, bucket, friends, notifications, messages, groups, wallet, profile, and admin views.
+- Session-based auth with signup, login, logout, and `GET /api/auth/me`.
+- PostgreSQL-backed catalog loading with mock fallback when the database is offline.
+- Admin tooling for overview data, ROM upload URL generation, ROM registration, and direct ROM upload.
+- Signed ROM download URL support through the API layer.
+- Friends, notifications, messaging, groups, wallet, and purchase history endpoints in the serverless API layer.
+- Local persistence for active tab, bucket contents, and library state in `localStorage`.
 
-The current codebase includes:
-- A React + TypeScript frontend with Store, Library, Friends, Bucket (cart), Notifications, and Game Detail pages.
-- An Express + PostgreSQL backend with seeded catalog and resilient fallback behavior.
-- Admin upload flows and authenticated signed-download support for ROM assets.
-- A clear path to evolve into a production-grade, database-driven commerce platform.
+## NEON GRID Diagrams (Updated)
 
-## Diagrams (Top-Level Showcase)
+### 1) System Context Diagram
 
-### 1) System Context
 ```mermaid
 flowchart LR
-   U[Player] --> FE[React Frontend SPA]
-   FE --> API[Express API Server]
-   API --> DB[(PostgreSQL)]
-   API --> NF[Netlify Function /games]
-   DB --> ADM[Admin / Staff]
+	Player[Player User] --> Frontend[React SPA]
+	Admin[Admin User] --> Frontend
+
+	Frontend --> ExpressAPI[Local Express API\nserver.ts]
+	Frontend --> ServerlessAPI[Vercel API Handlers\napi/*.ts]
+
+	ExpressAPI --> PostgreSQL[(PostgreSQL)]
+	ServerlessAPI --> PostgreSQL
+
+	ExpressAPI --> S3[(S3 Compatible Storage)]
+	ServerlessAPI --> S3
 ```
 
-### 2) Use Case Diagram
-```mermaid
-flowchart TB
-   Player((Player))
-   Admin((Admin))
+## Architecture Overview
 
-   subgraph Platform[Retro Game Store Platform]
-      UC1([Browse Catalog])
-      UC2([View Game Details])
-      UC3([Add To Bucket])
-      UC4([Acquire / Checkout])
-      UC5([View Library])
-      UC6([Manage Friends])
-      UC7([View Notifications])
-      UC8([Authenticate Session])
-      UC9([Manage Catalog])
-      UC10([Monitor Orders])
-   end
+The project is currently in a hybrid phase:
 
-   Player --> UC1
-   Player --> UC2
-   Player --> UC3
-   Player --> UC4
-   Player --> UC5
-   Player --> UC6
-   Player --> UC7
-   Player --> UC8
+- Feature-based architecture is already active in the frontend and API layout.
+- Clean Architecture adoption has started and is being introduced incrementally.
 
-   Admin --> UC9
-   Admin --> UC10
-```
+### Feature-Based Architecture (Started)
 
-### 3) Main Purchase Sequence
-```mermaid
-sequenceDiagram
-   participant P as Player
-   participant UI as React UI
-   participant API as Express API
-   participant DB as PostgreSQL
+- Frontend features are grouped under `src/pages/` with shared UI in `src/components/` and integration utilities in `src/services/`.
+- Serverless features are grouped under `api/` by behavior: games, bucket, friends, notifications, and user-data.
+- Admin-specific capabilities are implemented as dedicated routes and pages rather than mixed into player flows.
 
-   P->>UI: Open Store
-   UI->>API: GET /api/games
-   API->>DB: SELECT * FROM games
-   DB-->>API: catalog rows
-   API-->>UI: game list JSON
+### Clean Architecture Adoption (Started)
 
-   P->>UI: Add game to bucket
-   UI->>API: POST /api/bucket/items (target)
-   API->>DB: INSERT bucket_item
-   DB-->>API: ok
-   API-->>UI: bucket updated
+Current layer mapping:
 
-   P->>UI: Acquire all
-   UI->>API: POST /api/orders (target)
-   API->>DB: BEGIN
-   API->>DB: INSERT orders
-   API->>DB: INSERT order_items
-   API->>DB: INSERT library entries
-   API->>DB: DELETE bucket_items
-   API->>DB: COMMIT
-   DB-->>API: success
-   API-->>UI: acquisition completed
-```
+- Presentation layer:
+	- React screens and UI components in `src/pages/`, `src/components/`, `src/hooks/`, and app shell wiring in `src/App.tsx`.
+- Domain layer:
+	- Domain models and contracts currently centered in `src/types/` and domain decisions in feature logic.
+- Data layer:
+	- API clients in `src/services/api.ts`, backend handlers in `api/`, and persistence access in `server.ts` and PostgreSQL queries.
 
-### 4) Domain Class Diagram
-```mermaid
-classDiagram
-   class User {
-      +uuid id
-      +string username
-      +string email
-      +string password_hash
-      +string avatar_url
-      +string role
-      +datetime created_at
-   }
+Target direction:
 
-   class Game {
-      +uuid id
-      +string title
-      +string slug
-      +numeric price
-      +string category
-      +decimal rating_avg
-      +jsonb min_specs
-      +jsonb rec_specs
-   }
+- Move business rules from page-level handlers into explicit domain use-cases.
+- Keep transport and storage concerns isolated to data adapters.
+- Preserve a thin presentation layer that only orchestrates UI state and user interactions.
 
-   class BucketItem {
-      +uuid user_id
-      +uuid game_id
-      +int quantity
-      +datetime added_at
-   }
-
-   class Order {
-      +uuid id
-      +uuid user_id
-      +numeric subtotal
-      +numeric tax_amount
-      +numeric total_amount
-      +string status
-      +datetime created_at
-   }
-
-   class OrderItem {
-      +uuid order_id
-      +uuid game_id
-      +numeric unit_price
-   }
-
-   class LibraryItem {
-      +uuid user_id
-      +uuid game_id
-      +datetime acquired_at
-   }
-
-   class Friendship {
-      +uuid requester_id
-      +uuid addressee_id
-      +string status
-      +datetime created_at
-   }
-
-   class Notification {
-      +uuid id
-      +uuid user_id
-      +string type
-      +string title
-      +text body
-      +boolean is_read
-      +datetime created_at
-   }
-
-   User "1" --> "*" BucketItem
-   User "1" --> "*" Order
-   User "1" --> "*" LibraryItem
-   User "1" --> "*" Notification
-   User "1" --> "*" Friendship
-   Game "1" --> "*" BucketItem
-   Game "1" --> "*" LibraryItem
-   Order "1" --> "*" OrderItem
-   Game "1" --> "*" OrderItem
-```
-
-### 5) Order State Diagram
-```mermaid
-stateDiagram-v2
-   [*] --> DRAFT
-   DRAFT --> PENDING_PAYMENT
-   PENDING_PAYMENT --> PAID
-   PENDING_PAYMENT --> FAILED
-   FAILED --> PENDING_PAYMENT
-   PAID --> FULFILLED
-   PAID --> REFUNDED
-   FULFILLED --> [*]
-   REFUNDED --> [*]
-```
-
-### 6) Final Database ER Diagram (Target)
-```mermaid
-erDiagram
-   USERS ||--o{ USER_SESSIONS : has
-   USERS ||--o{ BUCKET_ITEMS : owns
-   USERS ||--o{ ORDERS : places
-   USERS ||--o{ LIBRARY_ITEMS : owns
-   USERS ||--o{ FRIENDSHIPS : initiates
-   USERS ||--o{ FRIENDSHIPS : receives
-   USERS ||--o{ NOTIFICATIONS : receives
-   USERS ||--o{ REVIEWS : writes
-
-   GAMES ||--o{ BUCKET_ITEMS : appears_in
-   GAMES ||--o{ ORDER_ITEMS : sold_as
-   GAMES ||--o{ LIBRARY_ITEMS : owned_as
-   GAMES ||--o{ REVIEWS : reviewed_in
-
-   ORDERS ||--o{ ORDER_ITEMS : contains
-   ORDERS ||--|| PAYMENTS : paid_by
-
-   USERS {
-      uuid id PK
-      varchar username UK
-      varchar email UK
-      varchar password_hash
-      varchar avatar_url
-      varchar role
-      timestamptz created_at
-   }
-
-   GAMES {
-      uuid id PK
-      varchar title
-      varchar slug UK
-      numeric price
-      varchar category
-      text description
-      varchar image_url
-      decimal rating_avg
-      integer rating_count
-      jsonb min_specs
-      jsonb rec_specs
-      boolean is_active
-      timestamptz created_at
-   }
-
-   BUCKET_ITEMS {
-      uuid user_id FK
-      uuid game_id FK
-      integer quantity
-      timestamptz added_at
-   }
-
-   ORDERS {
-      uuid id PK
-      uuid user_id FK
-      varchar status
-      numeric subtotal
-      numeric tax_amount
-      numeric discount_amount
-      numeric total_amount
-      char currency_code
-      timestamptz created_at
-   }
-
-   ORDER_ITEMS {
-      uuid order_id FK
-      uuid game_id FK
-      numeric unit_price
-      integer quantity
-      numeric line_total
-   }
-
-   PAYMENTS {
-      uuid id PK
-      uuid order_id FK
-      varchar provider
-      varchar status
-      varchar external_ref
-      numeric amount
-      timestamptz paid_at
-   }
-
-   LIBRARY_ITEMS {
-      uuid user_id FK
-      uuid game_id FK
-      uuid order_id FK
-      timestamptz acquired_at
-   }
-
-   FRIENDSHIPS {
-      uuid requester_id FK
-      uuid addressee_id FK
-      varchar status
-      timestamptz created_at
-      timestamptz updated_at
-   }
-
-   NOTIFICATIONS {
-      uuid id PK
-      uuid user_id FK
-      varchar type
-      varchar title
-      text body
-      boolean is_read
-      timestamptz created_at
-      timestamptz read_at
-   }
-
-   REVIEWS {
-      uuid user_id FK
-      uuid game_id FK
-      smallint rating
-      text comment
-      timestamptz created_at
-   }
-
-   USER_SESSIONS {
-      uuid id PK
-      uuid user_id FK
-      varchar token_hash
-      timestamptz expires_at
-      timestamptz created_at
-   }
-```
-
-Composite keys and uniqueness constraints are enforced in the SQL DDL section below (Mermaid ER syntax is limited for multi-column key declarations).
-
-## 1. Project Vision
-
-Build a reliable retro game marketplace where players can:
-- Discover curated classic/retro titles.
-- Add games to a bucket and complete acquisition.
-- Maintain a personal library of owned games.
-- Interact through social features (friends + notifications).
-
-The long-term objective is to move from UI-local state to full server persistence backed by a strong relational schema.
-
-## 2. Current Implementation Status
-
-### Implemented
-- React SPA with polished game-store UX.
-- Game catalog loading from `/api/games`.
-- PostgreSQL bootstrap (`users`, `games`, `library`, `friends`) in server startup.
-- Resilient mock fallback when DB is offline.
-- Local persistence for session-like UX via `localStorage`:
-   - login flag
-   - active tab
-   - bucket IDs
-   - library IDs
-
-### Partially Implemented / Mocked
-- Login is UI-only (no auth backend yet).
-- Friends and notifications are mock data in frontend state.
-- Checkout/acquisition logic is local state, not transactional DB writes.
-
-## 3. Technical Architecture
-
-- Frontend: React 19 + TypeScript + Vite + Tailwind + Motion.
-- Backend: Express 4 (`server.ts`) with TypeScript runtime via `tsx`.
-- Data: PostgreSQL through `pg` connection pool.
-- Deployment support: Netlify function for games endpoint in `netlify/functions/games.mts`.
-
-## 4. Routing and Feature Mapping
-
-### Frontend Navigation (Tab-Based)
-- `store`: catalog browsing and featured carousel
-- `game-detail`: per-game deep view and acquisition actions
-- `library`: owned games collection
-- `bucket`: checkout staging area
-- `friends`: social list interactions
-- `notifications`: event feed UI
-
-### Backend API (Current)
-- `GET /api/games`: returns DB games; falls back to mock list on failure.
-- `GET /api/users`: returns users from DB.
-
-### Backend API (Recommended Next)
-- `POST /api/auth/login`
-- `GET/POST/DELETE /api/bucket`
-- `POST /api/orders`
-- `GET /api/library/:userId`
-- `POST /api/friends/request`
-- `PATCH /api/friends/:id`
-- `GET/PATCH /api/notifications`
-
-## 5. Database-First Design (Critical Section)
-
-This section defines the predicted final schema to guide implementation.
-
-### Cardinality and Integrity Rules
-- One user can place many orders; each order belongs to one user.
-- One order contains one or many order items.
-- One game can appear in many order items.
-- One user owns many games through `library_items`; each game can belong to many users.
-- One user can have many active bucket items.
-- Friendships are user-to-user with a directional pair (`requester_id`, `addressee_id`) and controlled status.
-- Notifications are one-to-many from user.
-- Payments are one-to-one with orders (enforced by unique `order_id`).
-
-### Constraints to Enforce
-- Composite PKs on join tables (`bucket_items`, `library_items`, `order_items`, `reviews`).
-- Unique constraints on `users.username`, `users.email`, `games.slug`.
-- Checks:
-   - price/amount fields non-negative
-   - friendship status in (`pending`, `accepted`, `blocked`)
-   - order status in (`draft`, `pending_payment`, `paid`, `fulfilled`, `failed`, `refunded`)
-   - review rating range 1..5
-- Foreign keys with cascade policies where appropriate:
-   - deleting users should clear sessions/notifications/bucket entries.
-   - deleting games should be restricted if referenced by historical `order_items`.
-
-## 6. Suggested PostgreSQL DDL (Target)
-
-```sql
--- Requires pgcrypto extension for gen_random_uuid()
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
-CREATE TABLE users (
-   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-   username VARCHAR(40) NOT NULL UNIQUE,
-   email VARCHAR(160) NOT NULL UNIQUE,
-   password_hash TEXT NOT NULL,
-   avatar_url TEXT,
-   role VARCHAR(20) NOT NULL DEFAULT 'player' CHECK (role IN ('player', 'admin')),
-   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE games (
-   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-   title VARCHAR(140) NOT NULL,
-   slug VARCHAR(160) NOT NULL UNIQUE,
-   price NUMERIC(10,2) NOT NULL CHECK (price >= 0),
-   category VARCHAR(60) NOT NULL,
-   description TEXT NOT NULL,
-   image_url TEXT,
-   rating_avg NUMERIC(3,2) NOT NULL DEFAULT 0,
-   rating_count INT NOT NULL DEFAULT 0 CHECK (rating_count >= 0),
-   min_specs JSONB,
-   rec_specs JSONB,
-   is_active BOOLEAN NOT NULL DEFAULT TRUE,
-   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE bucket_items (
-   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-   game_id UUID NOT NULL REFERENCES games(id) ON DELETE RESTRICT,
-   quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0),
-   added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-   PRIMARY KEY (user_id, game_id)
-);
-
-CREATE TABLE orders (
-   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-   user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-   status VARCHAR(30) NOT NULL CHECK (status IN ('draft', 'pending_payment', 'paid', 'fulfilled', 'failed', 'refunded')),
-   subtotal NUMERIC(12,2) NOT NULL CHECK (subtotal >= 0),
-   tax_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (tax_amount >= 0),
-   discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
-   total_amount NUMERIC(12,2) NOT NULL CHECK (total_amount >= 0),
-   currency_code CHAR(3) NOT NULL DEFAULT 'USD',
-   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE order_items (
-   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-   game_id UUID NOT NULL REFERENCES games(id) ON DELETE RESTRICT,
-   unit_price NUMERIC(10,2) NOT NULL CHECK (unit_price >= 0),
-   quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0),
-   line_total NUMERIC(12,2) NOT NULL CHECK (line_total >= 0),
-   PRIMARY KEY (order_id, game_id)
-);
-
-CREATE TABLE payments (
-   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-   order_id UUID NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
-   provider VARCHAR(40) NOT NULL,
-   status VARCHAR(25) NOT NULL CHECK (status IN ('initiated', 'authorized', 'captured', 'failed', 'refunded')),
-   external_ref VARCHAR(120),
-   amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
-   paid_at TIMESTAMPTZ
-);
-
-CREATE TABLE library_items (
-   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-   game_id UUID NOT NULL REFERENCES games(id) ON DELETE RESTRICT,
-   order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
-   acquired_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-   PRIMARY KEY (user_id, game_id)
-);
-
-CREATE TABLE friendships (
-   requester_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-   addressee_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-   status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'accepted', 'blocked')),
-   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-   PRIMARY KEY (requester_id, addressee_id),
-   CHECK (requester_id <> addressee_id)
-);
-
-CREATE TABLE notifications (
-   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-   type VARCHAR(25) NOT NULL,
-   title VARCHAR(180) NOT NULL,
-   body TEXT NOT NULL,
-   is_read BOOLEAN NOT NULL DEFAULT FALSE,
-   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-   read_at TIMESTAMPTZ
-);
-
-CREATE TABLE reviews (
-   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-   game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-   rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
-   comment TEXT,
-   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-   PRIMARY KEY (user_id, game_id)
-);
-
-CREATE TABLE user_sessions (
-   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-   token_hash TEXT NOT NULL,
-   expires_at TIMESTAMPTZ NOT NULL,
-   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_games_category ON games(category);
-CREATE INDEX idx_games_title ON games(title);
-CREATE INDEX idx_orders_user_id ON orders(user_id);
-CREATE INDEX idx_notifications_user_read ON notifications(user_id, is_read);
-```
-
-## 7. Transaction Blueprint (Acquire All)
-
-Use a single DB transaction for checkout:
-1. Lock bucket rows for user.
-2. Compute totals from current game prices.
-3. Insert `orders` row.
-4. Insert `order_items` rows.
-5. Insert `payments` status update.
-6. Insert into `library_items` (ignore duplicates safely).
-7. Remove processed `bucket_items`.
-8. Commit.
-
-This guarantees consistency and prevents partial acquisition states.
-
-## 8. Website Feature Showcase
-
-- Immersive retro-cyber visual language with animated UI components.
-- Fast catalog browsing and featured carousel.
-- Game detail pages with specs, category, and rating.
-- Bucket workflow with total calculation and confirmations.
-- Library ownership tracking experience.
-- Social and notifications experience ready to be connected to backend persistence.
-
-## 9. Repository Structure
-
-- `src/`: frontend app (pages, components, hooks, services, types).
-- `server.ts`: Express API server + DB bootstrap logic.
-- `netlify/functions/games.mts`: serverless games endpoint variant.
-- `doc/`: formal project documents (architecture, API, SRS, DB design, runbook, UML).
-
-## 10. Local Setup
+## How to Run
 
 ### Prerequisites
-- Node.js LTS
+
+- Node.js LTS (recommended: 20.x)
 - npm
 - PostgreSQL instance (local or cloud)
+- S3-compatible bucket credentials for ROM workflows
 
-### Environment
-Create `.env` from `.env.example` and fill:
+### 1) Install dependencies
 
-```env
-DATABASE_URL="postgresql://user:password@host:port/dbname"
-GEMINI_API_KEY="optional_if_unused"
-APP_URL="http://localhost:3000"
-```
-
-### Run
 ```bash
 npm install
+```
+
+### 2) Create environment configuration
+
+Create `.env` in the project root and define the required variables.
+
+Minimum local setup:
+
+```env
+DATABASE_URL="postgresql://user:password@host:5432/dbname"
+ADMIN_BOOTSTRAP_USERNAME="admin"
+ADMIN_BOOTSTRAP_PASSWORD="Admin1234!"
+ADMIN_BOOTSTRAP_EMAIL="admin@local.admin"
+```
+
+If you use ROM upload/download flows, also configure:
+
+```env
+S3_ENDPOINT="https://..."
+S3_ACCESS_KEY_ID="..."
+S3_SECRET_ACCESS_KEY="..."
+S3_BUCKET="..."
+ROM_ADMIN_KEY="optional_admin_key"
+DOWNLOAD_REQUIRE_LIBRARY="false"
+```
+
+### 3) Start development server
+
+```bash
 npm run dev
 ```
 
 Then open:
+
 - App: `http://localhost:3000`
-- API: `http://localhost:3000/api/games`
+- API example: `http://localhost:3000/api/games`
 
-## 11. Practical Next Steps (Database-Driven Completion)
+### 4) Quality checks
 
-1. Add migration files from the target DDL above.
-2. Replace local bucket/library logic with API-backed persistence.
-3. Implement auth and session management.
-4. Implement transactional checkout endpoint.
-5. Wire friends/notifications to real tables.
-6. Add automated tests for integrity constraints and checkout transaction flow.
+```bash
+npm run lint
+npm run build
+```
 
-## 12. Notes for Team and Review
+## CI/CD
 
-- Current implementation is excellent for demonstration and UI validation.
-- The schema above is designed for correctness, cardinality clarity, and future scalability.
-- You can now use this README as the database contract for proceeding with backend implementation.
+The project supports two pipeline modes:
+
+### CI validation (GitHub Actions)
+
+- Trigger: push and pull request events.
+- Checks:
+	- Install dependencies with `npm ci`
+	- Lint with `npm run lint`
+	- Test with `npm test --if-present`
+	- Build with `npm run build`
+
+### Manual distribution build (GitHub Actions)
+
+- Trigger: `workflow_dispatch`.
+- Purpose: generate a manual distribution artifact for the NEON console app build output.
+- Output: zipped build artifact from `dist/` uploaded to the workflow artifacts.
+
+## Contribution Guidelines
+
+Use pull requests for all non-trivial changes.
+
+- Do not push directly to protected branches.
+- Open feature/fix/docs branches from the latest default branch.
+- Follow the branching and commit conventions in `CONTRIBUTING.md`.
+- Ensure CI passes before requesting review.
+- Keep pull requests focused and small enough for fast review cycles.
+
+### 2) Use Case Diagram
+
+```mermaid
+flowchart TB
+	Player((Player))
+	Admin((Admin))
+
+	subgraph Platform[NEON GRID Platform]
+		UC1([Browse Game Catalog])
+		UC2([View Game Details])
+		UC3([Manage Bucket])
+		UC4([Manage Library])
+		UC5([Manage Friends])
+		UC6([View Notifications])
+		UC7([Direct Messages and Groups])
+		UC8([Wallet Topup and Purchase])
+		UC9([Session Login and Signup])
+		UC10([Admin Overview])
+		UC11([Upload and Register ROM])
+		UC12([Generate Signed Download URL])
+	end
+
+	Player --> UC1
+	Player --> UC2
+	Player --> UC3
+	Player --> UC4
+	Player --> UC5
+	Player --> UC6
+	Player --> UC7
+	Player --> UC8
+	Player --> UC9
+	Player --> UC12
+
+	Admin --> UC9
+	Admin --> UC10
+	Admin --> UC11
+	Admin --> UC12
+```
+
+### 3) Component Architecture Diagram
+
+```mermaid
+flowchart LR
+	subgraph UI[Frontend React App]
+		Pages[Pages and Components]
+		ServiceAPI[src/services/api.ts]
+		LocalState[Tab and localStorage state]
+	end
+
+	subgraph Backend[Backend Layer]
+		Express[Express routes in server.ts]
+		FnGames[api/games.ts]
+		FnBucket[api/bucket.ts]
+		FnFriends[api/friends.ts]
+		FnNotif[api/notifications.ts]
+		FnUserData[api/user-data.ts]
+	end
+
+	subgraph Infra[Infrastructure]
+		DB[(PostgreSQL)]
+		ObjectStorage[(S3 Compatible Bucket)]
+	end
+
+	Pages --> ServiceAPI
+	ServiceAPI --> Express
+	ServiceAPI --> FnGames
+	ServiceAPI --> FnBucket
+	ServiceAPI --> FnFriends
+	ServiceAPI --> FnNotif
+	ServiceAPI --> FnUserData
+	Pages --> LocalState
+
+	Express --> DB
+	FnGames --> DB
+	FnBucket --> DB
+	FnFriends --> DB
+	FnNotif --> DB
+	FnUserData --> DB
+
+	Express --> ObjectStorage
+	FnGames --> ObjectStorage
+```
+
+### 4) Authentication and Session Sequence
+
+```mermaid
+sequenceDiagram
+	participant U as User
+	participant UI as React UI
+	participant API as Express Auth API
+	participant DB as PostgreSQL
+
+	U->>UI: Submit signup or login form
+	UI->>API: POST /api/auth/signup or /api/auth/login
+	API->>DB: Validate or create user
+	API->>DB: INSERT auth_sessions token_hash
+	API-->>UI: Set neon-grid-session cookie
+
+	UI->>API: GET /api/auth/me
+	API->>DB: Resolve token hash and user
+	DB-->>API: Session user
+	API-->>UI: User profile and role
+```
+
+### 5) Admin ROM Upload and Download Sequence
+
+```mermaid
+sequenceDiagram
+	participant A as Admin
+	participant UI as Admin Upload Page
+	participant API as Express API
+	participant S3 as S3 Bucket
+	participant DB as PostgreSQL
+
+	A->>UI: Select game and ROM file
+	UI->>API: POST /api/rom-upload-url
+	API->>DB: Validate game
+	API-->>UI: Signed PUT URL + storage key
+	UI->>S3: Upload binary with signed URL
+	UI->>API: POST /api/register-rom
+	API->>DB: Update game ROM metadata
+	API-->>UI: ROM registered
+
+	UI->>API: POST /api/game-download-url
+	API->>DB: Validate session and game downloadability
+	API-->>UI: Signed GET URL
+```
+
+### 6) Current Logical Data Model (UML/ER)
+
+```mermaid
+erDiagram
+	USERS ||--o{ AUTH_SESSIONS : has
+	USERS ||--o{ FRIENDS : owns
+	USERS ||--o{ NOTIFICATIONS : receives
+	USERS ||--o{ MESSAGES : sends
+	USERS ||--o{ MESSAGES : receives
+	USERS ||--o{ WALLETS : owns
+	USERS ||--o{ WALLET_TRANSACTIONS : makes
+	USERS ||--o{ GAME_PURCHASES : buys
+
+	GAMES ||--o{ BUCKET_ITEMS : appears_in
+	GAMES ||--o{ GAME_PURCHASES : purchased_as
+	GAMES ||--o{ NOTIFICATIONS : related_to
+
+	MESSAGE_GROUPS ||--o{ GROUP_MEMBERS : has
+	MESSAGE_GROUPS ||--o{ GROUP_MESSAGES : has
+	USERS ||--o{ GROUP_MEMBERS : joins
+	USERS ||--o{ GROUP_MESSAGES : sends
+
+	USERS {
+		uuid id PK
+		text username
+		text email
+		text password_hash
+		text password_salt
+		text role
+	}
+
+	AUTH_SESSIONS {
+		text token_hash PK
+		uuid user_id FK
+		timestamptz expires_at
+		timestamptz created_at
+	}
+
+	GAMES {
+		int id PK
+		text title
+		numeric price
+		text category
+		text rom_storage_key
+		text rom_filename
+		boolean is_downloadable
+	}
+
+	BUCKET_ITEMS {
+		uuid user_id FK
+		int game_id FK
+		timestamptz added_at
+	}
+
+	FRIENDS {
+		uuid id PK
+		uuid user_id FK
+		uuid friend_id FK
+		text status
+	}
+
+	NOTIFICATIONS {
+		uuid id PK
+		uuid user_id FK
+		text type
+		text message
+		boolean is_read
+		timestamptz created_at
+	}
+
+	MESSAGES {
+		uuid id PK
+		uuid sender_id FK
+		uuid recipient_id FK
+		text content
+		boolean is_read
+		timestamptz created_at
+	}
+
+	MESSAGE_GROUPS {
+		uuid id PK
+		text name
+		boolean is_public
+		uuid creator_id FK
+		timestamptz created_at
+		timestamptz updated_at
+	}
+
+	GROUP_MEMBERS {
+		uuid group_id FK
+		uuid user_id FK
+		boolean is_admin
+	}
+
+	GROUP_MESSAGES {
+		uuid id PK
+		uuid group_id FK
+		uuid sender_id FK
+		text content
+		timestamptz created_at
+	}
+
+	WALLETS {
+		uuid id PK
+		uuid user_id FK
+		numeric balance
+		timestamptz updated_at
+	}
+
+	WALLET_TRANSACTIONS {
+		uuid id PK
+		uuid user_id FK
+		text transaction_type
+		numeric amount
+		text status
+		timestamptz created_at
+	}
+
+	GAME_PURCHASES {
+		uuid id PK
+		uuid user_id FK
+		int game_id FK
+		numeric price_paid
+		timestamptz purchased_at
+	}
+```
+
+## Tech Stack
+
+- Frontend: React, TypeScript, Vite, Tailwind CSS, Motion.
+- Backend runtime for local development: Express in `server.ts`.
+- Serverless/API layer: handlers in `api/`.
+- Database: PostgreSQL via `pg`.
+- Object storage: S3-compatible storage such as Filebase.
+
+## Key Screens
+
+- Welcome, login, and signup flow.
+- Store and game detail browsing.
+- Library and bucket management.
+- Friends, notifications, messages, and groups.
+- Wallet balance, top-up, purchase history, and purchase flow.
+- Admin dashboard and ROM upload page.
+
+## API Surface
+
+### Local Express server
+
+- `GET /api/games` returns the catalog and falls back to seeded mock games if the database is unavailable.
+- `GET /api/users` returns user rows.
+- `POST /api/users` creates or updates a user row.
+- `GET /api/admin/overview` returns admin summary data for authenticated admins.
+- `POST /api/auth/signup` creates an account and issues a session cookie.
+- `POST /api/auth/login` authenticates a user and issues a session cookie.
+- `GET /api/auth/me` returns the current session user.
+- `POST /api/auth/logout` clears the session.
+- `POST /api/rom-upload-url` creates a signed upload URL for a ROM.
+- `POST /api/register-rom` stores ROM metadata for a game.
+- `POST /api/admin/upload-rom` uploads a ROM directly through the server.
+- `POST /api/game-download-url` creates a signed download URL for a ROM.
+
+### Serverless/API handlers in `api/`
+
+- `api/games.ts` handles catalog reads and signed download URL requests.
+- `api/bucket.ts` manages bucket items.
+- `api/friends.ts` manages friend search and friend creation.
+- `api/notifications.ts` manages notification reads, deletes, and mark-all-read.
+- `api/user-data.ts` handles messages, groups, and wallet operations.
+- `api/enrich-posters.ts` is currently a placeholder that returns a not-implemented response on Vercel.
+
+## Environment Variables
+
+Create a `.env` file with the values your deployment needs. Common variables used by the app are:
+
+```env
+DATABASE_URL="postgresql://user:password@host:port/dbname"
+S3_ENDPOINT="https://..."
+S3_ACCESS_KEY_ID="..."
+S3_SECRET_ACCESS_KEY="..."
+S3_BUCKET="..."
+ROM_ADMIN_KEY="optional_admin_key"
+DOWNLOAD_REQUIRE_LIBRARY="false"
+ADMIN_BOOTSTRAP_USERNAME="admin"
+ADMIN_BOOTSTRAP_PASSWORD="Admin1234!"
+ADMIN_BOOTSTRAP_EMAIL="admin@local.admin"
+GEMINI_API_KEY="optional_if_used_for_poster_workflows"
+```
+
+`S3_BUCKET` can also be provided through the aliases used in the API layer when deploying with Filebase-style settings.
+
+## Development
+
+### Install
+
+```bash
+npm install
+```
+
+### Run locally
+
+```bash
+npm run dev
+```
+
+The dev server starts the Express backend and serves the Vite frontend middleware.
+
+### Other scripts
+
+- `npm run build` builds the frontend.
+- `npm run preview` previews the production build.
+- `npm run lint` runs the TypeScript check.
+- `npm run clean` removes `dist/`.
+
+## Deployment Notes
+
+- `server.ts` is the local Express entry point.
+- `api/` contains the serverless-style handlers used by hosted deployments.
+- `vercel.json` rewrites `/api/*` to the API handlers during deployment.
+- The catalog endpoint is resilient and can serve mock data when PostgreSQL is offline.
+- ROM download features depend on the database, session cookie, and object storage configuration.
+
+## Current Behavior Notes
+
+- Auth is session-cookie based using the `neon-grid-session` cookie.
+- The store persists tab, bucket, and library state locally for a smoother UX.
+- Admin uploads are protected by the configured admin key and the admin session check.
+- Poster enrichment is not active in the current Vercel handler and returns a not-implemented response there.
+
+## Repository Layout
+
+- `src/` frontend app, pages, components, hooks, services, types, and utilities.
+- `api/` API handlers for bucket, friends, games, notifications, user data, and admin workflows.
+- `server.ts` local Express server and database bootstrap.
+- `doc/` architecture, API, database, runbook, and SRS documentation.
+- `vercel.json` deployment rewrite configuration.
+
+## Notes
+
+The documentation in this repository is intentionally split between the current implementation and the longer-term database design. If you are extending the app, keep the README aligned with the routes and data shape that are actually live in the codebase.

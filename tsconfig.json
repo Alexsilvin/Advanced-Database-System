@@ -16,14 +16,16 @@
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "react-jsx",
+    "types": ["vite/client"],
     "paths": {
       "@/*": [
-        "./*"
+        "./src/*"
       ]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true
-  }
+  },
+  "exclude": ["api", "node_modules"]
 }

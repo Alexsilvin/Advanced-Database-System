@@ -499,7 +499,7 @@ npm install
 npm run dev
 ```
 
-The dev server starts the Express backend and serves the Vite frontend middleware.
+The dev server starts the Vite frontend only. API requests under `/api` are proxied to the standalone backend (default `http://localhost:3001`).
 
 ### Other scripts
 
@@ -510,7 +510,7 @@ The dev server starts the Express backend and serves the Vite frontend middlewar
 
 ## Deployment Notes
 
-- `server.ts` is the local Express entry point.
+- The local frontend runs with Vite; backend now lives in the separate `backend/` project.
 - `api/` contains the serverless-style handlers used by hosted deployments.
 - `vercel.json` rewrites `/api/*` to the API handlers during deployment.
 - The catalog endpoint is resilient and can serve mock data when PostgreSQL is offline.
@@ -527,7 +527,7 @@ The dev server starts the Express backend and serves the Vite frontend middlewar
 
 - `src/` frontend app, pages, components, hooks, services, types, and utilities.
 - `api/` API handlers for bucket, friends, games, notifications, user data, and admin workflows.
-- `server.ts` local Express server and database bootstrap.
+- `backend/` (separate project) contains the standalone Express server and database bootstrap.
 - `doc/` architecture, API, database, runbook, and SRS documentation.
 - `vercel.json` deployment rewrite configuration.
 

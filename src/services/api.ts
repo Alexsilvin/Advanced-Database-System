@@ -163,7 +163,7 @@ export const requestGameDownloadUrl = async (payload: {
   expiresInSeconds?: number;
   adminKey?: string;
 }): Promise<DownloadUrlResponse> => {
-  const res = await fetch(apiUrl('/api/games?action=download-url'), {
+  const res = await fetch(apiUrl('/api/games/download-url'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

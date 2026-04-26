@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
   User, Cpu, Gamepad2, Clock, Users, Trophy,
@@ -53,7 +54,13 @@ export default function Profile({ libraryCount, friendsCount, onLogout, role, cu
   const totalHours = recentActivity.reduce((sum, g) => sum + g.hours, 0);
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
   const viewedUser = profile ?? currentUser;
-  const isViewingSelf = !profile || !currentUser || profile.id === currentUser.id;
+  const isViewingSelf = !profile || (currentUser ? profile.id === currentUser.id : false);
+
+  useEffect(() => {
+    if (!editingName && currentUser?.username) {
+      setDisplayName(currentUser.username.toUpperCase());
+    }
+  }, [currentUser?.username, editingName]);
 
   if (viewedUser && !isViewingSelf) {
     return (

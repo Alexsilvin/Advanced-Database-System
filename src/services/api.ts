@@ -1,5 +1,11 @@
 import { AdminOverviewResponse, AppNotification, AuthSessionResponse, Conversation, DirectMessage, DownloadUrlResponse, Friend, Game, GamePurchase, GroupMessage, MessageGroup, PosterEnrichmentResult, RegisterRomResponse, RomUploadUrlResponse, UserRole, UserSearchResult, Wallet, WalletTransaction } from '../types';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
+function apiUrl(path: string): string {
+  return API_BASE_URL ? `${API_BASE_URL}${path}` : path;
+}
+
 function normalizeGame(raw: unknown): Game | null {
   if (!raw || typeof raw !== 'object') return null;
   const row = raw as Record<string, unknown>;
@@ -55,7 +61,7 @@ async function readJsonResponse<T>(res: Response, fallbackError: string): Promis
 
 export const fetchGames = async (): Promise<Game[]> => {
   try {
-    const res = await fetch('/api/games');
+    const res = await fetch(apiUrl('/api/games'));
     const data = await readJsonResponse<unknown>(res, 'FAILED_TO_FETCH_GAMES');
     if (Array.isArray(data)) {
       return data.map(normalizeGame).filter((game): game is Game => game !== null);
@@ -73,7 +79,7 @@ export const fetchGames = async (): Promise<Game[]> => {
 };
 
 export const fetchCurrentUser = async (): Promise<AuthSessionResponse | null> => {
-  const res = await fetch('/api/auth/me', { credentials: 'include' });
+  const res = await fetch(apiUrl('/api/auth/me'), { credentials: 'include' });
   if (res.status === 401) {
     return null;
   }
@@ -87,7 +93,7 @@ export const fetchCurrentUser = async (): Promise<AuthSessionResponse | null> =>
 };
 
 export const fetchAdminOverview = async (): Promise<AdminOverviewResponse> => {
-  const res = await fetch('/api/admin/overview', { credentials: 'include' });
+  const res = await fetch(apiUrl('/api/admin/overview'), { credentials: 'include' });
   const data = await readJsonResponse<{ error?: string } & AdminOverviewResponse>(res, 'FAILED_TO_FETCH_ADMIN_OVERVIEW');
 
   if (!res.ok) {
@@ -102,7 +108,7 @@ export const signupUser = async (payload: {
   email: string;
   password: string;
 }): Promise<AuthSessionResponse> => {
-  const res = await fetch('/api/auth/signup', {
+  const res = await fetch(apiUrl('/api/auth/signup'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -127,7 +133,7 @@ export const loginUser = async (payload: {
   username: string;
   password: string;
 }): Promise<AuthSessionResponse> => {
-  const res = await fetch('/api/auth/login', {
+  const res = await fetch(apiUrl('/api/auth/login'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -145,7 +151,7 @@ export const loginUser = async (payload: {
 };
 
 export const logoutUser = async (): Promise<void> => {
-  await fetch('/api/auth/logout', {
+  await fetch(apiUrl('/api/auth/logout'), {
     method: 'POST',
     credentials: 'include',
   });
@@ -157,7 +163,7 @@ export const requestGameDownloadUrl = async (payload: {
   expiresInSeconds?: number;
   adminKey?: string;
 }): Promise<DownloadUrlResponse> => {
-  const res = await fetch('/api/games?action=download-url', {
+  const res = await fetch(apiUrl('/api/games?action=download-url'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -183,7 +189,7 @@ export const searchUsers = async (query: string): Promise<UserSearchResult[]> =>
   const term = query.trim();
   if (!term) return [];
 
-  const res = await fetch(`/api/friends?search=${encodeURIComponent(term)}`, {
+  const res = await fetch(apiUrl(`/api/friends?search=${encodeURIComponent(term)}`), {
     credentials: 'include',
   });
   const data = await readJsonResponse<{ error?: string; users?: UserSearchResult[] }>(res, 'FAILED_TO_SEARCH_USERS');
@@ -202,7 +208,7 @@ export const requestRomUploadUrl = async (payload: {
   expiresInSeconds?: number;
   adminKey?: string;
 }): Promise<RomUploadUrlResponse> => {
-  const res = await fetch('/api/rom-upload-url', {
+  const res = await fetch(apiUrl('/api/rom-upload-url'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -234,7 +240,7 @@ export const registerRom = async (payload: {
   isDownloadable?: boolean;
   adminKey?: string;
 }): Promise<RegisterRomResponse> => {
-  const res = await fetch('/api/register-rom', {
+  const res = await fetch(apiUrl('/api/register-rom'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -267,7 +273,7 @@ export const uploadRomToServer = async (payload: {
   isDownloadable?: boolean;
   romSha256?: string;
 }): Promise<RegisterRomResponse> => {
-  const uploadUrl = new URL('/api/admin/upload-rom', window.location.origin);
+  const uploadUrl = new URL(apiUrl('/api/admin/upload-rom'), window.location.origin);
   uploadUrl.searchParams.set('gameId', payload.gameId);
   uploadUrl.searchParams.set('filename', payload.filename);
   uploadUrl.searchParams.set('licenseType', payload.licenseType || 'unknown');
@@ -299,7 +305,7 @@ export const runPosterEnrichment = async (payload?: {
   minConfidence?: number;
   adminKey?: string;
 }): Promise<PosterEnrichmentResult> => {
-  const res = await fetch('/api/enrich-posters', {
+  const res = await fetch(apiUrl('/api/enrich-posters'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -321,7 +327,7 @@ export const runPosterEnrichment = async (payload?: {
 };
 
 export const fetchBucketItems = async (): Promise<string[]> => {
-  const res = await fetch('/api/bucket', { credentials: 'include' });
+  const res = await fetch(apiUrl('/api/bucket'), { credentials: 'include' });
   const data = await readJsonResponse<{ error?: string; gameIds?: string[] }>(res, 'FAILED_TO_FETCH_BUCKET');
   if (!res.ok) {
     throw new Error(data.error || 'FAILED_TO_FETCH_BUCKET');
@@ -330,7 +336,7 @@ export const fetchBucketItems = async (): Promise<string[]> => {
 };
 
 export const addBucketItem = async (gameId: string): Promise<void> => {
-  const res = await fetch('/api/bucket', {
+  const res = await fetch(apiUrl('/api/bucket'), {
     method: 'POST',
     credentials: 'include',
     headers: {
@@ -345,7 +351,7 @@ export const addBucketItem = async (gameId: string): Promise<void> => {
 };
 
 export const removeBucketItem = async (gameId: string): Promise<void> => {
-  const res = await fetch(`/api/bucket?gameId=${encodeURIComponent(gameId)}`, {
+  const res = await fetch(apiUrl(`/api/bucket?gameId=${encodeURIComponent(gameId)}`), {
     method: 'DELETE',
     credentials: 'include',
   });
@@ -356,7 +362,7 @@ export const removeBucketItem = async (gameId: string): Promise<void> => {
 };
 
 export const replaceBucketItems = async (gameIds: string[]): Promise<void> => {
-  const res = await fetch('/api/bucket', {
+  const res = await fetch(apiUrl('/api/bucket'), {
     method: 'PUT',
     credentials: 'include',
     headers: {
@@ -371,7 +377,7 @@ export const replaceBucketItems = async (gameIds: string[]): Promise<void> => {
 };
 
 export const fetchFriends = async (): Promise<Friend[]> => {
-  const res = await fetch('/api/friends', { credentials: 'include' });
+  const res = await fetch(apiUrl('/api/friends'), { credentials: 'include' });
   const data = await readJsonResponse<{ error?: string; friends?: Array<{ username: string; status?: Friend['status']; game?: string }> }>(res, 'FAILED_TO_FETCH_FRIENDS');
   if (!res.ok) {
     throw new Error(data.error || 'FAILED_TO_FETCH_FRIENDS');
@@ -387,7 +393,7 @@ export const fetchFriends = async (): Promise<Friend[]> => {
 };
 
 export const addFriend = async (username: string): Promise<void> => {
-  const res = await fetch('/api/friends', {
+  const res = await fetch(apiUrl('/api/friends'), {
     method: 'POST',
     credentials: 'include',
     headers: {
@@ -402,7 +408,7 @@ export const addFriend = async (username: string): Promise<void> => {
 };
 
 export const fetchNotifications = async (): Promise<AppNotification[]> => {
-  const res = await fetch('/api/notifications', { credentials: 'include' });
+  const res = await fetch(apiUrl('/api/notifications'), { credentials: 'include' });
   const data = await readJsonResponse<{ error?: string; notifications?: AppNotification[] }>(res, 'FAILED_TO_FETCH_NOTIFICATIONS');
   if (!res.ok) {
     throw new Error(data.error || 'FAILED_TO_FETCH_NOTIFICATIONS');
@@ -411,7 +417,7 @@ export const fetchNotifications = async (): Promise<AppNotification[]> => {
 };
 
 export const markAllNotificationsRead = async (): Promise<void> => {
-  const res = await fetch('/api/notifications?action=mark-all-read', {
+  const res = await fetch(apiUrl('/api/notifications?action=mark-all-read'), {
     method: 'PATCH',
     credentials: 'include',
   });
@@ -422,7 +428,7 @@ export const markAllNotificationsRead = async (): Promise<void> => {
 };
 
 export const dismissNotification = async (id: string): Promise<void> => {
-  const res = await fetch(`/api/notifications?id=${encodeURIComponent(id)}`, {
+  const res = await fetch(apiUrl(`/api/notifications?id=${encodeURIComponent(id)}`), {
     method: 'DELETE',
     credentials: 'include',
   });
@@ -433,7 +439,7 @@ export const dismissNotification = async (id: string): Promise<void> => {
 };
 
 export const clearNotifications = async (): Promise<void> => {
-  const res = await fetch('/api/notifications', {
+  const res = await fetch(apiUrl('/api/notifications'), {
     method: 'DELETE',
     credentials: 'include',
   });
@@ -448,7 +454,7 @@ export const clearNotifications = async (): Promise<void> => {
 // ============================================================
 
 export const fetchConversations = async (): Promise<Conversation[]> => {
-  const res = await fetch('/api/messages', {
+  const res = await fetch(apiUrl('/api/messages'), {
     credentials: 'include',
   });
   const data = await readJsonResponse<Conversation[]>(res, 'FAILED_TO_FETCH_CONVERSATIONS');
@@ -459,7 +465,7 @@ export const fetchConversations = async (): Promise<Conversation[]> => {
 };
 
 export const fetchConversation = async (userId: string): Promise<DirectMessage[]> => {
-  const res = await fetch(`/api/messages?with=${encodeURIComponent(userId)}`, {
+  const res = await fetch(apiUrl(`/api/messages?with=${encodeURIComponent(userId)}`), {
     credentials: 'include',
   });
   const data = await readJsonResponse<DirectMessage[]>(res, 'FAILED_TO_FETCH_CONVERSATION');
@@ -470,7 +476,7 @@ export const fetchConversation = async (userId: string): Promise<DirectMessage[]
 };
 
 export const sendMessage = async (recipientId: string, content: string): Promise<DirectMessage> => {
-  const res = await fetch('/api/messages', {
+  const res = await fetch(apiUrl('/api/messages'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -484,7 +490,7 @@ export const sendMessage = async (recipientId: string, content: string): Promise
 };
 
 export const markMessagesAsRead = async (senderId: string): Promise<void> => {
-  const res = await fetch('/api/messages', {
+  const res = await fetch(apiUrl('/api/messages'), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -500,7 +506,7 @@ export const markMessagesAsRead = async (senderId: string): Promise<void> => {
 // ============================================================
 
 export const fetchGroups = async (): Promise<MessageGroup[]> => {
-  const res = await fetch('/api/groups', {
+  const res = await fetch(apiUrl('/api/groups'), {
     credentials: 'include',
   });
   const data = await readJsonResponse<MessageGroup[]>(res, 'FAILED_TO_FETCH_GROUPS');
@@ -511,7 +517,7 @@ export const fetchGroups = async (): Promise<MessageGroup[]> => {
 };
 
 export const createGroup = async (name: string, description?: string, isPublic = true): Promise<MessageGroup> => {
-  const res = await fetch('/api/groups', {
+  const res = await fetch(apiUrl('/api/groups'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -525,7 +531,7 @@ export const createGroup = async (name: string, description?: string, isPublic =
 };
 
 export const fetchGroupMessages = async (groupId: string): Promise<GroupMessage[]> => {
-  const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/messages`, {
+  const res = await fetch(apiUrl(`/api/groups/${encodeURIComponent(groupId)}/messages`), {
     credentials: 'include',
   });
   const data = await readJsonResponse<GroupMessage[]>(res, 'FAILED_TO_FETCH_GROUP_MESSAGES');
@@ -536,7 +542,7 @@ export const fetchGroupMessages = async (groupId: string): Promise<GroupMessage[
 };
 
 export const sendGroupMessage = async (groupId: string, content: string): Promise<GroupMessage> => {
-  const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/messages`, {
+  const res = await fetch(apiUrl(`/api/groups/${encodeURIComponent(groupId)}/messages`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -550,7 +556,7 @@ export const sendGroupMessage = async (groupId: string, content: string): Promis
 };
 
 export const addGroupMember = async (groupId: string, userId: string): Promise<void> => {
-  const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/members`, {
+  const res = await fetch(apiUrl(`/api/groups/${encodeURIComponent(groupId)}/members`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -566,7 +572,7 @@ export const addGroupMember = async (groupId: string, userId: string): Promise<v
 // ============================================================
 
 export const fetchWallet = async (): Promise<Wallet> => {
-  const res = await fetch('/api/wallet', {
+  const res = await fetch(apiUrl('/api/wallet'), {
     credentials: 'include',
   });
   const data = await readJsonResponse<Wallet>(res, 'FAILED_TO_FETCH_WALLET');
@@ -577,7 +583,7 @@ export const fetchWallet = async (): Promise<Wallet> => {
 };
 
 export const topupWallet = async (amount: number, paymentMethodId?: string, description?: string): Promise<{ transaction: WalletTransaction; newBalance: number }> => {
-  const res = await fetch('/api/wallet/topup', {
+  const res = await fetch(apiUrl('/api/wallet/topup'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -591,7 +597,7 @@ export const topupWallet = async (amount: number, paymentMethodId?: string, desc
 };
 
 export const fetchWalletTransactions = async (limit = 50, offset = 0): Promise<WalletTransaction[]> => {
-  const res = await fetch(`/api/wallet/transactions?limit=${limit}&offset=${offset}`, {
+  const res = await fetch(apiUrl(`/api/wallet/transactions?limit=${limit}&offset=${offset}`), {
     credentials: 'include',
   });
   const data = await readJsonResponse<WalletTransaction[]>(res, 'FAILED_TO_FETCH_TRANSACTIONS');
@@ -602,7 +608,7 @@ export const fetchWalletTransactions = async (limit = 50, offset = 0): Promise<W
 };
 
 export const purchaseGame = async (gameId: string, price: number): Promise<{ purchase: GamePurchase; newBalance: number }> => {
-  const res = await fetch('/api/wallet/purchase', {
+  const res = await fetch(apiUrl('/api/wallet/purchase'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -616,7 +622,7 @@ export const purchaseGame = async (gameId: string, price: number): Promise<{ pur
 };
 
 export const fetchPurchaseHistory = async (): Promise<GamePurchase[]> => {
-  const res = await fetch('/api/wallet/purchases', {
+  const res = await fetch(apiUrl('/api/wallet/purchases'), {
     credentials: 'include',
   });
   const data = await readJsonResponse<GamePurchase[]>(res, 'FAILED_TO_FETCH_PURCHASE_HISTORY');
